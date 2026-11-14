@@ -55,6 +55,7 @@ var baseFunctionSettings = union({
   EventDocsStorage__blobServiceUri: blobServiceUri
   APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
   Ai__Enabled: 'false' // explicit: AI stays off in cloud week 1 (code default is also false)
+  WEBSITE_RUN_FROM_PACKAGE: '1'
 }, sqlSettings)
 
 resource functionSettings 'Microsoft.Web/sites/config@2024-11-01' = {
