@@ -93,7 +93,8 @@ jobs:
             --name ${{ env.API_APP }} \
             --slot staging \
             --src-path api.zip \
-            --type zip
+            --type zip \
+            --timeout 600000
 
       - name: Deploy Functions to staging slot
         run: |
@@ -101,7 +102,8 @@ jobs:
             --resource-group ${{ env.RG_NAME }} \
             --name ${{ env.FUNC_APP }} \
             --slot staging \
-            --src functions.zip
+            --src functions.zip \
+            --timeout 600
 
       - name: Deploy Worker (direct with graceful shutdown)
         run: |
@@ -109,7 +111,8 @@ jobs:
             --resource-group ${{ env.RG_NAME }} \
             --name ${{ env.WORKER_APP }} \
             --src-path worker.zip \
-            --type zip
+            --type zip \
+            --timeout 600000
 
       - name: Smoke test staging slots
         run: |
