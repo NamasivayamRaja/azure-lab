@@ -45,20 +45,77 @@ resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
 // ConnectionStrings__LabDb is passwordless (system-assigned managed identity). Connection Timeout=60 covers a serverless auto-resume.
 var sqlSettings = empty(sqlServerFqdn) ? {} : { ConnectionStrings__LabDb: 'Server=tcp:${sqlServerFqdn},1433;Database=${sqlDatabaseName};Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=60' }
 
+var baseFunctionSettings = union({
+  FUNCTIONS_EXTENSION_VERSION: '~4'
+  FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
+  AzureWebJobsStorage__accountName: storageAccountName // identity-based host storage (blob trigger)
+  AzureWebJobsStorage__blobServiceUri: blobServiceUri
+  AzureWebJobsStorage__queueServiceUri: replace(blobServiceUri, '.blob.', '.queue.')
+  ServiceBusConnection__fullyQualifiedNamespace: serviceBusFqdn
+  EventDocsStorage__blobServiceUri: blobServiceUri
+  APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+  Ai__Enabled: 'false' // explicit: AI stays off in cloud week 1 (code default is also false)
+}, sqlSettings)
+
 resource functionSettings 'Microsoft.Web/sites/config@2024-11-01' = {
   parent: functionApp
   name: 'appsettings'
-  properties: union({
-    FUNCTIONS_EXTENSION_VERSION: '~4'
-    FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
-    AzureWebJobsStorage__accountName: storageAccountName // identity-based host storage (blob trigger)
-    AzureWebJobsStorage__blobServiceUri: blobServiceUri
-    AzureWebJobsStorage__queueServiceUri: replace(blobServiceUri, '.blob.', '.queue.')
-    ServiceBusConnection__fullyQualifiedNamespace: serviceBusFqdn
-    EventDocsStorage__blobServiceUri: blobServiceUri
-    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-    Ai__Enabled: 'false' // explicit: AI stays off in cloud week 1 (code default is also false)
-  }, sqlSettings)
+  properties: union(baseFunctionSettings, {
+    'AzureWebJobs.EventDocumentFunction.Disabled': 'false'
+    'AzureWebJobs.OfferNotificationFunction.Disabled': 'false'
+    'AzureWebJobs.DocumentIngestionFunction.Disabled': 'false'
+  })
+}
+
+// Sticky slot settings: keep triggers disabled in staging and enabled in production across swaps
+resource functionSlotConfig 'Microsoft.Web/sites/config@2024-11-01' = {
+  parent: functionApp
+  name: 'slotConfigNames'
+  properties: {
+    appSettingNames: [
+      'WEBSITE_SWAP_WARMUP_PING_PATH'
+      'WEBSITE_SWAP_WARMUP_PING_STATUSES'
+      'AzureWebJobs.EventDocumentFunction.Disabled'
+      'AzureWebJobs.OfferNotificationFunction.Disabled'
+      'AzureWebJobs.DocumentIngestionFunction.Disabled'
+    ]
+  }
+}
+
+resource functionStaging 'Microsoft.Web/sites/slots@2024-11-01' = {
+  parent: functionApp
+  name: 'staging'
+  location: location
+  tags: tags
+  kind: 'functionapp,linux'
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    serverFarmId: planId
+    httpsOnly: true
+    clientAffinityEnabled: false
+    siteConfig: {
+      linuxFxVersion: 'DOTNET-ISOLATED|10.0'
+      alwaysOn: true
+      healthCheckPath: healthCheckPath
+      ftpsState: 'Disabled'
+      minTlsVersion: '1.2'
+      http20Enabled: true
+    }
+  }
+}
+
+resource functionStagingSettings 'Microsoft.Web/sites/slots/config@2024-11-01' = {
+  parent: functionStaging
+  name: 'appsettings'
+  properties: union(baseFunctionSettings, {
+    WEBSITE_SWAP_WARMUP_PING_PATH: healthCheckPath
+    WEBSITE_SWAP_WARMUP_PING_STATUSES: '200'
+    'AzureWebJobs.EventDocumentFunction.Disabled': 'true'
+    'AzureWebJobs.OfferNotificationFunction.Disabled': 'true'
+    'AzureWebJobs.DocumentIngestionFunction.Disabled': 'true'
+  })
 }
 
 output principalId string = functionApp.identity.principalId
