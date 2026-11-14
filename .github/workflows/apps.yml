@@ -1,0 +1,139 @@
+name: Apps (API, Worker, Functions)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'AzureLabs.Api/**'
+      - 'AzureLab.Worker/**'
+      - 'AzureLab.Functions/**'
+      - 'AzureLab.Data/**'
+      - 'AzureLab.Messaging/**'
+      - 'AzureLab.Rag/**'
+      - '.github/workflows/apps.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'AzureLabs.Api/**'
+      - 'AzureLab.Worker/**'
+      - 'AzureLab.Functions/**'
+      - 'AzureLab.Data/**'
+      - 'AzureLab.Messaging/**'
+      - 'AzureLab.Rag/**'
+      - '.github/workflows/apps.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG_NAME: rg-azurelab-ndvd-dev-cin
+  API_APP: app-azurelab-api-dev-cin-5kaayi
+  WORKER_APP: app-azurelab-worker-dev-cin-5kaayi
+  FUNC_APP: func-azurelab-dev-cin-5kaayi
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build & Publish API
+        run: dotnet publish AzureLabs.Api/AzureLabs.Api.csproj -c Release -o publish/api
+
+      - name: Build & Publish Worker
+        run: dotnet publish AzureLab.Worker/AzureLab.Worker.csproj -c Release -o publish/worker
+
+      - name: Build & Publish Functions
+        run: dotnet publish AzureLab.Functions/AzureLab_Functions.csproj -c Release -o publish/functions
+
+      - name: Upload publish artifacts
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-packages
+          path: publish/
+          retention-days: 3
+
+  deploy-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Download publish artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: app-packages
+          path: publish/
+
+      - name: Zip packages
+        run: |
+          (cd publish/api && zip -r ../../api.zip .)
+          (cd publish/worker && zip -r ../../worker.zip .)
+          (cd publish/functions && zip -r ../../functions.zip .)
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy API to staging slot
+        run: |
+          az webapp deploy \
+            --resource-group ${{ env.RG_NAME }} \
+            --name ${{ env.API_APP }} \
+            --slot staging \
+            --src-path api.zip \
+            --type zip
+
+      - name: Deploy Functions to staging slot
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group ${{ env.RG_NAME }} \
+            --name ${{ env.FUNC_APP }} \
+            --slot staging \
+            --src functions.zip
+
+      - name: Deploy Worker (direct with graceful shutdown)
+        run: |
+          az webapp deploy \
+            --resource-group ${{ env.RG_NAME }} \
+            --name ${{ env.WORKER_APP }} \
+            --src-path worker.zip \
+            --type zip
+
+      - name: Smoke test staging slots
+        run: |
+          API_STAGING_HOST=$(az webapp show -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --slot staging --query defaultHostName -o tsv)
+          FUNC_STAGING_HOST=$(az functionapp show -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging --query defaultHostName -o tsv)
+          curl --fail --retry 12 --retry-delay 10 --retry-all-errors "https://${API_STAGING_HOST}/health"
+          curl --fail --retry 12 --retry-delay 10 --retry-all-errors "https://${FUNC_STAGING_HOST}/api/health"
+
+      - name: Swap API & Functions staging -> production
+        run: |
+          az webapp deployment slot swap \
+            --resource-group ${{ env.RG_NAME }} \
+            --name ${{ env.API_APP }} \
+            --slot staging \
+            --target-slot production
+          az functionapp deployment slot swap \
+            --resource-group ${{ env.RG_NAME }} \
+            --name ${{ env.FUNC_APP }} \
+            --slot staging \
+            --target-slot production
+
+      - name: Smoke test production
+        run: |
+          API_HOST=$(az webapp show -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --query defaultHostName -o tsv)
+          FUNC_HOST=$(az functionapp show -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --query defaultHostName -o tsv)
+          curl --fail --retry 6 --retry-delay 5 --retry-all-errors "https://${API_HOST}/health"
+          curl --fail --retry 6 --retry-delay 5 --retry-all-errors "https://${FUNC_HOST}/api/health"
