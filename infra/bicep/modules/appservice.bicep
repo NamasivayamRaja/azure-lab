@@ -40,6 +40,7 @@ var apiBaseSettings = {
   BlobStorage__CreateContainerIfMissing: 'false'
   BlobStorage__AllowHttpSas: 'false'
   Ai__Enabled: 'false' // explicit: AI stays off in cloud week 1 (code default is also false)
+  WEBSITE_RUN_FROM_PACKAGE: '1'
 }
 
 // Passwordless: no User Id, no Password. Connection Timeout=60 covers a serverless auto-resume (about 1 minute).
@@ -64,6 +65,7 @@ var workerBaseSettings = {
   Consumers__Notification__UnknownMessagePolicy: 'Complete'
   Outbox__BatchSize: '20'
   Outbox__MaxAttempts: '5'
+  WEBSITE_RUN_FROM_PACKAGE: '1'
 }
 var workerSettings = union(workerBaseSettings, sqlSettings)
 
