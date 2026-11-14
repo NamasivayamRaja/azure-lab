@@ -1,0 +1,94 @@
+name: Infra (Bicep)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infra/bicep/**'
+      - '.github/workflows/infra.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/bicep/**'
+      - '.github/workflows/infra.yml'
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG_NAME: rg-azurelab-ndvd-dev-cin
+  BICEP_FILE: infra/bicep/main.bicep
+  DEV_PARAMS: infra/bicep/params/dev.bicepparam
+  AZURELAB_OWNER: ${{ vars.AZURELAB_OWNER }}
+  AZURELAB_SQL_ADMIN_LOGIN: ${{ vars.AZURELAB_SQL_ADMIN_LOGIN }}
+  AZURELAB_SQL_ADMIN_OID: ${{ vars.AZURELAB_SQL_ADMIN_OID }}
+
+jobs:
+  build-and-whatif:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bicep build & lint
+        run: |
+          az bicep build --file ${{ env.BICEP_FILE }}
+          az bicep build-params --file ${{ env.DEV_PARAMS }}
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep What-If (Dev)
+        run: |
+          {
+            echo "### Bicep What-If (dev)"
+            echo '```'
+            az deployment group what-if \
+              --resource-group ${{ env.RG_NAME }} \
+              --parameters ${{ env.DEV_PARAMS }} \
+              --no-pretty-print
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: []
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Bicep (Dev)
+        run: |
+          az deployment group create \
+            --resource-group ${{ env.RG_NAME }} \
+            --parameters ${{ env.DEV_PARAMS }}
+
+  # Pattern for prod: requires 'prod' Environment reviewer approval in GitHub UI
+  # deploy-prod:
+  #   needs: deploy-dev
+  #   if: false
+  #   runs-on: ubuntu-latest
+  #   environment: prod
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: azure/login@v2
+  #       with:
+  #         client-id: ${{ vars.AZURE_CLIENT_ID }}
+  #         tenant-id: ${{ vars.AZURE_TENANT_ID }}
+  #         subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  #     - run: az deployment group create --resource-group rg-azurelab-ndvd-prod-cin --parameters infra/bicep/params/prod.bicepparam
