@@ -1,0 +1,21 @@
+services:
+  pgvector:
+    image: pgvector/pgvector:pg17
+    container_name: azurelab-pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: azurelab
+      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD:?set it in infra/local/.env}
+      POSTGRES_DB: azurelab_rag
+    ports:
+      - "5433:5432"        # 5433 on the host so it never clashes with a local Postgres
+    mem_limit: 768m
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U azurelab -d azurelab_rag"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgvector-data:

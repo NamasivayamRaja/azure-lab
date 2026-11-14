@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/infra/" />
+  <Folder Name="/infra/servicebus/">
+    <File Path=".env" />
+    <File Path="Config.json" />
+    <File Path="docker-compose.yml" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="chaos.json" />
+  </Folder>
+  <Project Path="../AzureLab.Assistant/AzureLab.Assistant.csproj" />
+  <Project Path="../AzureLab.Data/AzureLab.Data.csproj" Id="4cd15af5-ec8b-417a-8693-e13241130ad2" />
+  <Project Path="../AzureLab.DlqTool/AzureLab.DlqTool.csproj" Id="abbc27e0-d2ef-43df-a110-95f9f0f58cee" />
+  <Project Path="../AzureLab.Functions/AzureLab_Functions.csproj" />
+  <Project Path="../AzureLab.Messaging/AzureLab.Messaging.csproj" Id="1e37a47a-82f0-41d2-a0f2-5f9ad4593f6d" />
+  <Project Path="../AzureLab.Rag/AzureLab.Rag.csproj" />
+  <Project Path="../AzureLab.Worker/AzureLab.Worker.csproj" Id="3adbc93c-c3b0-4b84-91f3-2edce8ab57a2" />
+  <Project Path="AzureLabs.Api.csproj" />
+</Solution>

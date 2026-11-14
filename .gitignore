@@ -1,0 +1,19 @@
+# Build & IDE
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+publish/
+infra/bicep/.out/
+
+# Local secrets & environment files
+local.settings.json
+appsettings.Development.json
+.env
+*.env
+secrets.json
+*.pfx
+*.publishsettings
+__blobstorage__/
+__azurite_db_*

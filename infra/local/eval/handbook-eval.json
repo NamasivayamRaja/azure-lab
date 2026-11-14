@@ -1,0 +1,16 @@
+{
+  "eventId": "781ffe26-1158-4b9a-ae44-efe1f3541488",
+  "expectedSource": "handbook.pdf",
+  "cases": [
+    { "question": "At what time does registration open?", "expectAnswer": true, "anyOf": ["8:00", "8 am"] },
+    { "question": "What must attendees show when they check in?", "expectAnswer": true, "anyOf": ["ticket", "confirmation"] },
+    { "question": "Am I allowed to record a presentation?", "expectAnswer": true, "anyOf": ["approval", "permission", "speaker"] },
+    { "question": "How early should I arrive before a session starts?", "expectAnswer": true, "anyOf": ["ten minutes", "10 minutes"] },
+    { "question": "Do I need consent before posting photos of other attendees?", "expectAnswer": true, "anyOf": ["consent"] },
+    { "question": "How many days before the event must I cancel to get a full refund?", "expectAnswer": true, "anyOf": ["14"] },
+    { "question": "What refund do I get if I cancel 10 days before the event?", "expectAnswer": true, "anyOf": ["50"] },
+    { "question": "Is there a dress code at the event?", "expectAnswer": false, "note": "on-topic, answer absent" },
+    { "question": "Is lunch provided to attendees?", "expectAnswer": false, "note": "on-topic, answer absent" },
+    { "question": "What is the capital of France?", "expectAnswer": false, "note": "off-topic" }
+  ]
+}
