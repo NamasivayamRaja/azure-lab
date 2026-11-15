@@ -42,3 +42,24 @@
 - **Functions `0 functions found` (404)**: `actions/upload-artifact@v4` strips hidden folders (`.azurefunctions/`) by default; fixed with `include-hidden-files: true`.
 - **Functions Staging `AuthorizationPermissionMismatch`**: Staging slot MI lacked `Storage Blob/Queue Data Contributor` on `AzureWebJobsStorage`; added `functionStagingPrincipalId` to `roleassignments.bicep`.
 - **`efbundle` Login Failed (18456)**: Added `EXTERNAL_USER` for `id-azurelab-github-dev-cin` inside `sqldb-azurelab-dev-cin` and `--verbose` + `Connection Timeout=120`.
+
+
+## Day 4 — Real Authentication & Authorization on the API (2026-11-15)
+
+### Decisions
+- **In-code JWT Bearer (`Microsoft.Identity.Web`) over Easy Auth**: Chosen for local dev parity, ASP.NET Core policy flexibility (`ApiAccess` supporting `scp` or `roles`), per-event authorization, and future OBO support.
+- **v2 Tokens & `Audience`**: Configured `requestedAccessTokenVersion = 2` on `api-azurelab-dev`; omitted `AzureAd:Audience` so `Microsoft.Identity.Web` accepts the bare `ClientId` GUID emitted in v2 `aud` claims.
+- **Public Repo Hygiene**: Kept real `TenantId`/`ClientId` out of `appsettings.json` and `dev.bicepparam` (using `dotnet user-secrets` locally and `readEnvironmentVariable` + GitHub Repo Variables in CI/CD).
+- **Authorization Model**: Removed `UserId` from `RedeemRequestDto` (derived from token `oid` to eliminate BOLA/IDOR); added `EventEnrollment` table (`EventId`, `UserId`) for per-event ACLs on `/ask` and `/assistant`; kept `EventDocumentsController` gated by `ApiAccess` only for Operator/employee uploads.
+
+### Key Commands Run
+- Entra ID app registrations: `az ad app create`, `az ad sp create`, `az rest --method PATCH https://graph.microsoft.com/v1.0/applications/$API_OBJ_ID` (scopes, `Api.Service` app role, `preAuthorizedApplications`).
+- Token acquisition (zero secrets): `az account get-access-token --scope "api://$API_APP_ID/api.access"`.
+- EF migration & local secrets: `dotnet ef migrations add AddEventEnrollments`, `dotnet user-secrets set "AzureAd:*"`.
+- Local & Azure curl/PowerShell test matrix (`401`, `200`, `403`, `503`).
+
+### Issues & Fixes
+- **Graph `InvalidValue` / `InvalidAppId`**: `preAuthorizedApplications` cannot be added in the same `PATCH` that creates the scope, and `04b07795-8ddb-461a-bbee-02f9e1bf7b46` is the real Microsoft Azure CLI App ID. Split into two `PATCH` calls.
+- **`401` on valid v2 token**: `AzureAd:Audience = api://<id>` rejected v2 tokens whose `aud` is the bare `<id>`; removed `Audience` from config and Bicep.
+- **Bicep linter `no-hardcoded-env-urls`**: Replaced `'https://login.microsoftonline.com/'` with `environment().authentication.loginEndpoint` in `appservice.bicep`.
+- **Azure `IDW10106: The 'ClientId' option must be provided`**: `infra.yml` was missing `AZURE_TENANT_ID` and `AZURELAB_API_CLIENT_ID` in `env:`; added both so `dev.bicepparam` populates `AzureAd__*` on App Service.
