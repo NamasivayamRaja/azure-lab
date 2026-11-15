@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using AzureLab.Assistant;
 using AzureLab.Rag;
+using AzureLabs.Api.Auth;
 using Microsoft.Extensions.Options;
 
 namespace AzureLabs.Api.Assistant;
@@ -14,14 +15,14 @@ public static partial class AssistantEndpoint
     public static IEndpointRouteBuilder MapAssistantEndpoint(this IEndpointRouteBuilder app)
     {
         app.MapPost("/events/{eventId:guid}/assistant", HandleAsync)
-           .RequireAuthorization()
+           .RequireAuthorization("ApiAccess")
            .WithName("EventAssistant");
         return app;
     }
 
     private static async Task<IResult> HandleAsync(
         Guid eventId, AssistantRequest request, HttpContext http, ClaimsPrincipal user,
-        AssistantService assistant, IOptions<AiOptions> options, ILogger<AssistantRequest> logger, CancellationToken ct)
+        AssistantService assistant, IEventAccessService eventAccess, IOptions<AiOptions> options, ILogger<AssistantRequest> logger, CancellationToken ct)
     {
         var max = options.Value.Query.MaxQuestionChars;
         var message = request.Message?.Trim();
@@ -29,15 +30,13 @@ public static partial class AssistantEndpoint
         if (string.IsNullOrEmpty(message)) return Results.Problem(statusCode: 400, title: "Message is required.");
         if (message.Length > max) return Results.Problem(statusCode: 400, title: $"Message is longer than {max} characters.");
 
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId = user.GetCallerObjectId();
         if (string.IsNullOrWhiteSpace(userId)) return Results.Problem(statusCode: 401, title: "Unauthenticated.");
 
-        // Authorization BEFORE any model or data access. The event comes from the route, the permission from the claims.
-        var allowed = user.FindAll("event_id")
-            .Select(c => Guid.TryParse(c.Value, out var g) ? g : Guid.Empty)
-            .Where(g => g != Guid.Empty)
-            .ToHashSet();
-        if (!allowed.Contains(eventId)) return Results.Problem(statusCode: 403, title: "Not allowed for this event.");
+        // Authorization BEFORE any model or data access. The event comes from the route, the ACL from EventEnrollments.
+        if (!await eventAccess.CanAccessEventAsync(user, eventId, ct))
+            return Results.Problem(statusCode: 403, title: "Not allowed for this event.");
+        var allowed = await eventAccess.GetAllowedEventIdsAsync(user, ct);
 
         var supplied = http.Request.Headers["X-Correlation-ID"].FirstOrDefault();
         var correlationId = supplied is { Length: > 0 and <= 64 } && SafeId().IsMatch(supplied)

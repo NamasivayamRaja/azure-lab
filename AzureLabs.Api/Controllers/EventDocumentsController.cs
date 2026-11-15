@@ -1,5 +1,6 @@
-﻿using Azure.Core;
+using Azure.Core;
 using AzureLabs.Api.Storage;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AzureLabs.Api.Controllers
@@ -7,6 +8,7 @@ namespace AzureLabs.Api.Controllers
     public sealed record UploadSasRequest(string FileName);
 
     [ApiController]
+    [Authorize(Policy = "ApiAccess")]
     [Route("events/{eventId:guid}/documents")]
     public class EventDocumentsController(EventDocumentStore eventDocumentStore) : ControllerBase
     {

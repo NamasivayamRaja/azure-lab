@@ -67,6 +67,25 @@ namespace AzureLab.Data.Migrations
                     b.ToTable("EventDocuments", (string)null);
                 });
 
+            modelBuilder.Entity("AzureLab.Data.EventEnrollment", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset>("EnrolledUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("EventId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EventEnrollments");
+                });
+
             modelBuilder.Entity("AzureLab.Data.OfferInventory", b =>
                 {
                     b.Property<Guid>("OfferId")

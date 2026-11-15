@@ -38,6 +38,9 @@ param apiBlobContainerName string = 'bulk-player-enrollment'
 param grantStagingSlotRoles bool = false
 param apiDevEndpointsEnabled bool = false
 
+param azureAdTenantId string = ''
+param azureAdClientId string = ''
+
 @allowed([
   'S1'
   'S2'
@@ -172,6 +175,8 @@ module appService 'modules/appservice.bicep' = {
     apiBlobContainerName: apiBlobContainerName
     sqlServerFqdn: deploySql ? sqlServerFqdn : ''
     sqlDatabaseName: names.sqlDatabase
+    azureAdTenantId: azureAdTenantId
+    azureAdClientId: azureAdClientId
   }
 }
 
