@@ -29,6 +29,11 @@ param workerHealthCheckPath string = '/health'
 
 param azureAdTenantId string = ''
 param azureAdClientId string = ''
+param appInsightsName string
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
+  name: appInsightsName
+}
 
 var linuxFxVersion = 'DOTNETCORE|10.0'
 
@@ -54,7 +59,10 @@ var authSettings = empty(azureAdTenantId) ? {} : {
   AzureAd__TenantId: azureAdTenantId
   AzureAd__ClientId: azureAdClientId
 }
-var apiSettings = union(apiBaseSettings, sqlSettings, authSettings)
+var appInsightsSettings = {
+  APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+}
+var apiSettings = union(apiBaseSettings, sqlSettings, authSettings, appInsightsSettings)
 
 // Values mirror AzureLab.Worker/appsettings.json. Redeem has no Subscription (queue).
 // Outbox__Destination is deliberately NOT set: OutboxOptions binds "Destinations" (backlog).
@@ -75,7 +83,7 @@ var workerBaseSettings = {
   Outbox__MaxAttempts: '5'
   WEBSITE_RUN_FROM_PACKAGE: '1'
 }
-var workerSettings = union(workerBaseSettings, sqlSettings)
+var workerSettings = union(workerBaseSettings, sqlSettings, appInsightsSettings)
 
 // ---------- Plan ----------
 resource appPlan 'Microsoft.Web/serverfarms@2024-11-01' = {
