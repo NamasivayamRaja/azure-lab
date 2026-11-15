@@ -6,6 +6,7 @@ param apiPrincipalId string
 param apiStagingPrincipalId string
 param workerPrincipalId string
 param functionPrincipalId string
+param functionStagingPrincipalId string
 
 @description('Grant the staging slot identity the API roles. false = least privilege (warm-up only hits /health).')
 param grantStagingSlotRoles bool = false
@@ -208,22 +209,28 @@ resource functionDocumentProcessedReceiver 'Microsoft.Authorization/roleAssignme
 }
 
 // ---------- Functions: host storage + blob trigger + quarantine ----------
-resource functionBlobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, functionPrincipalId, roleIds.blobDataContributor)
-  scope: storage
-  properties: {
-    roleDefinitionId: roleIds.blobDataContributor
-    principalId: functionPrincipalId
-    principalType: 'ServicePrincipal'
-  }
-}
+var functionStoragePrincipalIds = [functionPrincipalId, functionStagingPrincipalId]
 
-resource functionQueueContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, functionPrincipalId, roleIds.queueDataContributor)
-  scope: storage
-  properties: {
-    roleDefinitionId: roleIds.queueDataContributor
-    principalId: functionPrincipalId
-    principalType: 'ServicePrincipal'
+resource functionBlobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for pid in functionStoragePrincipalIds: {
+    name: guid(storage.id, pid, roleIds.blobDataContributor)
+    scope: storage
+    properties: {
+      roleDefinitionId: roleIds.blobDataContributor
+      principalId: pid
+      principalType: 'ServicePrincipal'
+    }
   }
-}
+]
+
+resource functionQueueContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for pid in functionStoragePrincipalIds: {
+    name: guid(storage.id, pid, roleIds.queueDataContributor)
+    scope: storage
+    properties: {
+      roleDefinitionId: roleIds.queueDataContributor
+      principalId: pid
+      principalType: 'ServicePrincipal'
+    }
+  }
+]

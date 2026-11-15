@@ -120,4 +120,5 @@ resource functionStagingSettings 'Microsoft.Web/sites/slots/config@2024-11-01' =
 }
 
 output principalId string = functionApp.identity.principalId
+output stagingPrincipalId string = functionStaging.identity.principalId
 output defaultHostName string = functionApp.properties.defaultHostName
