@@ -287,7 +287,8 @@ app.MapPost("/offers/{offerId:guid}/redeem", async (
     HttpContext http,
     IConfiguration config,
     IHostEnvironment env,
-    IOptions<ServiceBusOptions> options) =>
+    IOptions<ServiceBusOptions> options,
+    ILogger<Program> logger) =>
 {
     var userId = http.User.GetCallerObjectId();
     if (string.IsNullOrWhiteSpace(userId))
@@ -301,6 +302,8 @@ app.MapPost("/offers/{offerId:guid}/redeem", async (
 
     var callerCorrelationId = http.Request.Headers["X-Correlation-ID"].FirstOrDefault();
     var correlationId = !string.IsNullOrWhiteSpace(callerCorrelationId) ? callerCorrelationId : Guid.NewGuid().ToString();
+    System.Diagnostics.Activity.Current?.SetTag("correlation.id", correlationId);
+    using var logScope = logger.BeginScope(new Dictionary<string, object> { ["CorrelationId"] = correlationId });
 
     // Idempotent POST when caller supplies X-Correlation-ID (makes Polly HTTP retries on redeem-loopback safe)
     if (!string.IsNullOrWhiteSpace(callerCorrelationId))
@@ -355,6 +358,7 @@ app.MapPost("/offers/{offerId:guid}/redeem", async (
     }, http.RequestAborted);
 
     http.Response.Headers["X-Correlation-ID"] = correlationId;
+    logger.LogInformation("Redeem accepted RedeemTransactionId={RedeemTransactionId} OfferId={OfferId} CorrelationId={CorrelationId}", txId, offerId, correlationId);
 
     return Results.Accepted(
         $"/offers/{offerId}/redeem/{txId}",
