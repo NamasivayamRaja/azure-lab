@@ -58,6 +58,7 @@ public sealed class ServiceBusConsumer<THandler>(
                 ["CorrelationId"] = message.CorrelationId,
                 ["DeliveryCount"] = message.DeliveryCount
             });
+            Activity.Current?.SetTag("correlation.id", message.CorrelationId);
 
             await using var scope = scopes.CreateAsyncScope();
             var handler = scope.ServiceProvider.GetRequiredService<THandler>();
