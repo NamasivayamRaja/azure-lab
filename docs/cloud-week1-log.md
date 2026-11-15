@@ -19,3 +19,26 @@
 - **API CSV vs. Functions PDF**: API `DocumentFileRules` accepts `.csv` only (`bulk-player-enrollment`); Functions `EventDocumentFunction` accepts `.pdf/.png/.jpg/.docx` (`event-docs`).
 - **ARM Incremental mode**: Deploying tightened Bicep added `Storage Blob Data Contributor` without removing the old `Storage Blob Data Owner`; deleted the old assignment manually and verified via `az role assignment list`.
 - **RBAC propagation vs. AMQP/key caches**: Storage/SB RBAC revocations took ~56s–200s+ to propagate, and `UserDelegationSasService` caches keys for 2h (requires app restart to observe immediately); SQL role removal took 0s.
+
+
+## Day 3 — GitHub Actions CI/CD with OIDC, Staging Slots & Safe Releases
+
+### Decisions
+- **GitHub Free (Public Repo `NamasivayamRaja/azure-lab`)**: Branch ruleset on `main` (PR required, 0 approvals for solo dev, `build-and-whatif` status check, no force push) + `dev` (unprotected) and `prod` (required reviewer) Environments.
+- **Deploy Identity**: Single UAMI `id-azurelab-github-dev-cin` at RG scope (`Contributor` + `Role Based Access Control Administrator`) for Day 3 velocity; documented two-identity split (`infra` vs `app`) for production.
+- **Worker Strategy**: Kept Worker slotless (`appservice.bicep`)—relies on `SIGTERM` graceful shutdown, Service Bus peek-lock expiry, 30s Outbox leases, and idempotent handlers.
+- **Functions Staging Slot**: Added `staging` slot to `functionapp.bicep` with sticky `AzureWebJobs.<Function>.Disabled=true` and host-storage RBAC (`Storage Blob Data Contributor` + `Storage Queue Data Contributor`), stopping `staging` slots after each swap.
+- **Plan SKU**: Upgraded `dev.bicepparam` from `S1` (1.75 GB, ~\$2.28/day) to `P0v3` (4 GB, ~\$2.04/day) and enabled `WEBSITE_RUN_FROM_PACKAGE=1`.
+- **DB Migrations**: Self-contained `efbundle` run by `id-azurelab-github-dev-cin` (`Authentication=Active Directory Default`) before app deploys, using a short-lived runner IP firewall rule cleaned up in `if: always()`.
+
+### Key Commands Run
+- OIDC bootstrap: `az identity create`, `az identity federated-credential create/update`, `az role assignment create`.
+- SQL deploy user: `CREATE USER [id-azurelab-github-dev-cin] FROM EXTERNAL PROVIDER` + `db_ddladmin`, `db_datareader`, `db_datawriter`.
+- Slot & rollback tests: `az webapp start/stop`, `az webapp deployment slot swap`, `az deployment group create` (drift restore).
+
+### Issues & Fixes
+- **Immutable OIDC IDs**: GitHub sent `repo:NamasivayamRaja@10979213/azure-lab@1457712472:...`; updated all 3 federated credentials to match exact casing and `@<id>` suffixes (`AADSTS700213`).
+- **OneDeploy 504 Timeout**: `S1` SMB extraction took ~4m49s, hitting Azure ARR's ~230s gateway timeout; fixed with `WEBSITE_RUN_FROM_PACKAGE=1`, `P0v3`, and sequential slot swaps.
+- **Functions `0 functions found` (404)**: `actions/upload-artifact@v4` strips hidden folders (`.azurefunctions/`) by default; fixed with `include-hidden-files: true`.
+- **Functions Staging `AuthorizationPermissionMismatch`**: Staging slot MI lacked `Storage Blob/Queue Data Contributor` on `AzureWebJobsStorage`; added `functionStagingPrincipalId` to `roleassignments.bicep`.
+- **`efbundle` Login Failed (18456)**: Added `EXTERNAL_USER` for `id-azurelab-github-dev-cin` inside `sqldb-azurelab-dev-cin` and `--verbose` + `Connection Timeout=120`.
