@@ -4,6 +4,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Text.Json;
 
 public sealed class OutboxOptions
@@ -18,6 +19,7 @@ public sealed class OutboxOptions
 
 public class OutboxDispatcher : BackgroundService
 {
+    private static readonly ActivitySource OutboxActivitySource = new("AzureLab.Outbox");
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ServiceBusClient _serviceBusClient;
     private readonly OutboxOptions _options;
@@ -72,11 +74,19 @@ public class OutboxDispatcher : BackgroundService
 
         foreach (var outbox in messages)
         {
+            var props = DeserializeProperties(outbox.Properties);
+            using var activity = StartDispatchActivity(outbox, props);
+            using var logScope = _logger.BeginScope(new Dictionary<string, object>
+            {
+                ["CorrelationId"] = outbox.CorrelationId,
+                ["OutboxId"] = outbox.Id
+            });
+
             try
             {
                 var sender = _senders.GetOrAdd(outbox.Destination, dest => _serviceBusClient.CreateSender(dest));
 
-                await sender.SendMessageAsync(ToServiceBusMessage(outbox), ct);
+                await sender.SendMessageAsync(ToServiceBusMessage(outbox, props), ct);
 
                 outbox.ProcessedUtc = DateTimeOffset.UtcNow;
                 outbox.LockedUntilUtc = null;
@@ -163,7 +173,32 @@ public class OutboxDispatcher : BackgroundService
             .ToListAsync(ct);
     }
 
-    private static ServiceBusMessage ToServiceBusMessage(OutboxMessage row)
+    private static Dictionary<string, string>? DeserializeProperties(string? json)
+    {
+        return string.IsNullOrWhiteSpace(json)
+            ? null
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+    }
+
+    private static Activity? StartDispatchActivity(OutboxMessage row, Dictionary<string, string>? props)
+    {
+        ActivityContext parentContext = default;
+        if (props is not null && props.TryGetValue("traceparent", out var traceparent))
+        {
+            props.TryGetValue("tracestate", out var tracestate);
+            ActivityContext.TryParse(traceparent, tracestate, out parentContext);
+        }
+
+        var activity = parentContext != default
+            ? OutboxActivitySource.StartActivity("Outbox.Dispatch", ActivityKind.Producer, parentContext)
+            : OutboxActivitySource.StartActivity("Outbox.Dispatch", ActivityKind.Producer);
+
+        activity?.SetTag("correlation.id", row.CorrelationId);
+        activity?.SetTag("messaging.destination.name", row.Destination);
+        return activity;
+    }
+
+    private static ServiceBusMessage ToServiceBusMessage(OutboxMessage row, Dictionary<string, string>? props)
     {
         var message = new ServiceBusMessage(row.Payload)
         {
@@ -173,15 +208,12 @@ public class OutboxDispatcher : BackgroundService
             ContentType = "application/json"
         };
 
-        if (!string.IsNullOrWhiteSpace(row.Properties))
+        if (props is not null)
         {
-            var props = JsonSerializer.Deserialize<Dictionary<string, string>>(row.Properties);
-            if (props is not null)
+            foreach (var (key, value) in props)
             {
-                foreach (var (key, value) in props)
-                {
-                    message.ApplicationProperties[key] = value;
-                }
+                if (key is "traceparent" or "tracestate") continue;
+                message.ApplicationProperties[key] = value;
             }
         }
 
