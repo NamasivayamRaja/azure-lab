@@ -1,8 +1,11 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using AzureLab.Data;
 using AzureLab.Messaging;
 using AzureLab.Worker;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +44,17 @@ builder.Services.AddServiceBusConsumer<NotificationMessageHandler>(builder.Confi
 builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddHostedService<OutboxDispatcher>();
 builder.Services.AddHostedService<RedeemReconciler>();
+
+AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true);
+
+var otelBuilder = builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("azurelab-worker"))
+    .WithTracing(t => t.AddSource("Azure.Messaging.ServiceBus.*"));
+
+if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+{
+    otelBuilder.UseAzureMonitor();
+}
 
 var app = builder.Build();
 
