@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AzureLabs.Api.Auth;
 
 namespace AzureLabs.Api.Assistant;
 
@@ -7,7 +8,7 @@ public static class ProposalEndpoints
     public static IEndpointRouteBuilder MapProposalEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/proposals/{proposalId:guid}/confirm", ConfirmAsync)
-           .RequireAuthorization()
+           .RequireAuthorization("ApiAccess")
            .WithName("ConfirmRedeemProposal");
         return app;
     }
@@ -16,7 +17,7 @@ public static class ProposalEndpoints
         Guid proposalId, HttpContext http, ClaimsPrincipal user,
         ProposalConfirmationService service, CancellationToken ct)
     {
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId = user.GetCallerObjectId();
         if (string.IsNullOrWhiteSpace(userId)) return Results.Problem(statusCode: 401, title: "Unauthenticated.");
 
         var r = await service.ConfirmAsync(proposalId, userId, ct);

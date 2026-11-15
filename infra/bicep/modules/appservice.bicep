@@ -27,6 +27,9 @@ param sqlDatabaseName string = ''
 param apiHealthCheckPath string = '/health'
 param workerHealthCheckPath string = '/health'
 
+param azureAdTenantId string = ''
+param azureAdClientId string = ''
+
 var linuxFxVersion = 'DOTNETCORE|10.0'
 
 // ---------- App settings: keys exactly as the code reads them ----------
@@ -46,7 +49,12 @@ var apiBaseSettings = {
 // Passwordless: no User Id, no Password. Connection Timeout=60 covers a serverless auto-resume (about 1 minute).
 var sqlConnection = 'Server=tcp:${sqlServerFqdn},1433;Database=${sqlDatabaseName};Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=60'
 var sqlSettings = empty(sqlServerFqdn) ? {} : { ConnectionStrings__Default: sqlConnection }
-var apiSettings = union(apiBaseSettings, sqlSettings)
+var authSettings = empty(azureAdTenantId) ? {} : {
+  AzureAd__Instance: environment().authentication.loginEndpoint
+  AzureAd__TenantId: azureAdTenantId
+  AzureAd__ClientId: azureAdClientId
+}
+var apiSettings = union(apiBaseSettings, sqlSettings, authSettings)
 
 // Values mirror AzureLab.Worker/appsettings.json. Redeem has no Subscription (queue).
 // Outbox__Destination is deliberately NOT set: OutboxOptions binds "Destinations" (backlog).

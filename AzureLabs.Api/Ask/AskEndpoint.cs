@@ -1,6 +1,7 @@
 using System.Data.Common;
 using AzureLab.Rag;
 using AzureLab.Rag.Query;
+using AzureLabs.Api.Auth;
 using Microsoft.Extensions.Options;
 
 namespace AzureLabs.Api.Ask;
@@ -12,6 +13,7 @@ public static class AskEndpoint
     public static IEndpointRouteBuilder MapAskEndpoint(this IEndpointRouteBuilder app)
     {
         app.MapPost("/events/{eventId:guid}/ask", HandleAsync)
+           .RequireAuthorization("ApiAccess")
            .WithName("AskEventQuestion")
            .Produces<AskResult>(StatusCodes.Status200OK)
            .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -25,6 +27,7 @@ public static class AskEndpoint
         AskRequest? body,
         IOptions<AiOptions> options,
         EventQuestionService service,
+        IEventAccessService eventAccess,
         IHostEnvironment env,
         HttpContext http,
         ILoggerFactory loggerFactory,
@@ -59,8 +62,9 @@ public static class AskEndpoint
             ["EventId"] = eventId
         });
 
-        // AUTHORIZATION GOES HERE: verify the caller may read this event BEFORE any retrieval.
-        // The lab has no authentication yet; do not trust an event id coming from the request body.
+        // Per-event authorization BEFORE any retrieval or model call.
+        if (!await eventAccess.CanAccessEventAsync(http.User, eventId, ct))
+            return Results.Problem(statusCode: StatusCodes.Status403Forbidden, title: "Not allowed for this event.");
 
         try
         {

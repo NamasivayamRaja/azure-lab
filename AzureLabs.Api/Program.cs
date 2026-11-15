@@ -15,11 +15,14 @@ using System.Security.Cryptography;
 using System.Text;
 using AzureLab.Assistant;
 using AzureLabs.Api.Assistant;
+using AzureLabs.Api.Auth;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Identity.Web;
 using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -63,6 +66,7 @@ builder.Services.AddScoped<IEventPassageSearch, RagPassageSearch>();
 builder.Services.AddScoped<AssistantService>();
 builder.Services.AddScoped<IRedeemProposals, EfRedeemProposals>();
 builder.Services.AddScoped<ProposalConfirmationService>();
+builder.Services.AddScoped<IEventAccessService, EfEventAccessService>();
 
 // Step 6: Standard resilience pipeline on redeem-loopback (Polly v8).
 // POST /offers/{id}/redeem is idempotent when X-Correlation-ID is sent.
@@ -86,12 +90,21 @@ builder.Services.AddHttpClient(ProposalConfirmationService.ClientName, c =>
     options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
 });
 builder.Services.AddSingleton<IntentExtractor>();
-builder.Services.AddAuthorization();
-if (builder.Environment.IsDevelopment())   // DEV-ONLY caller identity; replaced by Entra ID in cloud week 1
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+builder.Services.AddAuthorization(options =>
 {
-    builder.Services.AddAuthentication(DevAuthenticationHandler.Scheme)
-        .AddScheme<AuthenticationSchemeOptions, DevAuthenticationHandler>(DevAuthenticationHandler.Scheme, _ => { });
-}
+    options.AddPolicy("ApiAccess", policy => policy.RequireAssertion(ctx =>
+    {
+        if (ctx.User.IsInRole("Api.Service") || ctx.User.HasClaim("roles", "Api.Service"))
+            return true;
+
+        var scopes = ctx.User.FindAll("http://schemas.microsoft.com/identity/claims/scope")
+            .Concat(ctx.User.FindAll("scp"))
+            .SelectMany(c => c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        return scopes.Contains("api.access", StringComparer.Ordinal);
+    }));
+});
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -117,7 +130,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-if (app.Environment.IsDevelopment()) app.UseAuthentication();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
@@ -260,13 +273,16 @@ if (app.Environment.IsDevelopment())
 
 app.MapPost("/offers/{offerId:guid}/redeem", async (
     Guid offerId,
-    RedeemRequestDto dto,
     AppDbContext db,
     HttpContext http,
     IConfiguration config,
     IHostEnvironment env,
     IOptions<ServiceBusOptions> options) =>
 {
+    var userId = http.User.GetCallerObjectId();
+    if (string.IsNullOrWhiteSpace(userId))
+        return Results.Problem(statusCode: StatusCodes.Status401Unauthorized, title: "Unauthenticated.");
+
     if (env.IsDevelopment() && string.Equals(config["Chaos:Mode"], "ApiSlow", StringComparison.OrdinalIgnoreCase))
     {
         var slowSec = int.TryParse(config["Chaos:SlowSeconds"], out var s) && s > 0 ? s : 5;
@@ -280,7 +296,7 @@ app.MapPost("/offers/{offerId:guid}/redeem", async (
     if (!string.IsNullOrWhiteSpace(callerCorrelationId))
     {
         var existing = await db.RedeemTransactions.AsNoTracking()
-            .Where(t => t.CorrelationId == callerCorrelationId && t.OfferId == offerId && t.UserId == dto.UserId)
+            .Where(t => t.CorrelationId == callerCorrelationId && t.OfferId == offerId && t.UserId == userId)
             .Select(t => new { t.Id, t.Status })
             .FirstOrDefaultAsync(http.RequestAborted);
 
@@ -300,13 +316,13 @@ app.MapPost("/offers/{offerId:guid}/redeem", async (
     {
         Id = txId,
         OfferId = offerId,
-        UserId = dto.UserId,
+        UserId = userId,
         Status = RedeemTransactionStatus.Pending,
         RequestedAtUtc = now,
         CorrelationId = correlationId
     };
 
-    var payload = new RedeemRequested(txId, offerId, Guid.Parse("F878DD09-415E-48EA-A4E6-9091A29FCE80"), dto.UserId, now);
+    var payload = new RedeemRequested(txId, offerId, Guid.Parse("F878DD09-415E-48EA-A4E6-9091A29FCE80"), userId, now);
 
     var strategy = db.Database.CreateExecutionStrategy();
     await strategy.ExecuteAsync(async ct =>
@@ -334,6 +350,7 @@ app.MapPost("/offers/{offerId:guid}/redeem", async (
         $"/offers/{offerId}/redeem/{txId}",
         new { RedeemTransactionId = txId, transaction.Status });
 })
+.RequireAuthorization("ApiAccess")
 .WithName("RedeemOffer")
 .Produces(StatusCodes.Status202Accepted);
 
@@ -474,8 +491,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
-
-public record RedeemRequestDto(string UserId);
 
 internal sealed class ApiSqlReadinessHealthCheck(IServiceScopeFactory scopes) : IHealthCheck
 {
