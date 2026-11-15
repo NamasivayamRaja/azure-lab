@@ -177,6 +177,7 @@ module appService 'modules/appservice.bicep' = {
     sqlDatabaseName: names.sqlDatabase
     azureAdTenantId: azureAdTenantId
     azureAdClientId: azureAdClientId
+    appInsightsName: monitoring.outputs.appInsightsName
   }
 }
 
