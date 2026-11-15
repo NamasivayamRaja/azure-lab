@@ -60,6 +60,7 @@ jobs:
         with:
           name: app-packages
           path: publish/
+          include-hidden-files: true
           retention-days: 3
 
   deploy-dev:
