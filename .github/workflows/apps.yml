@@ -110,7 +110,7 @@ jobs:
       - name: Run EF Core Migrations (Entra OIDC)
         run: |
           chmod +x publish/efbundle
-          ./publish/efbundle --connection "Server=tcp:${{ env.SQL_SERVER }}.database.windows.net,1433;Database=${{ env.SQL_DB }};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=60"
+          ./publish/efbundle --verbose --connection "Server=tcp:${{ env.SQL_SERVER }}.database.windows.net,1433;Database=${{ env.SQL_DB }};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120"
 
       - name: Remove temporary SQL firewall rule
         if: always()
