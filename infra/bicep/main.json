@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "15881997596329172929"
+      "templateHash": "11636106103155239659"
     }
   },
   "parameters": {
@@ -651,6 +651,9 @@
           },
           "azureAdClientId": {
             "value": "[parameters('azureAdClientId')]"
+          },
+          "appInsightsName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsName.value]"
           }
         },
         "template": {
@@ -660,7 +663,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.48.1.52935",
-              "templateHash": "3091283475890738744"
+              "templateHash": "2299470642796242625"
             }
           },
           "parameters": {
@@ -733,6 +736,9 @@
             "azureAdClientId": {
               "type": "string",
               "defaultValue": ""
+            },
+            "appInsightsName": {
+              "type": "string"
             }
           },
           "variables": {
@@ -750,8 +756,7 @@
             },
             "sqlConnection": "[format('Server=tcp:{0},1433;Database={1};Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=60', parameters('sqlServerFqdn'), parameters('sqlDatabaseName'))]",
             "sqlSettings": "[if(empty(parameters('sqlServerFqdn')), createObject(), createObject('ConnectionStrings__Default', variables('sqlConnection')))]",
-            "authSettings": "[if(empty(parameters('azureAdTenantId')), createObject(), createObject('AzureAd__Instance', environment().authentication.loginEndpoint, 'AzureAd__TenantId', parameters('azureAdTenantId'), 'AzureAd__ClientId', parameters('azureAdClientId'), 'AzureAd__Audience', format('api://{0}', parameters('azureAdClientId'))))]",
-            "apiSettings": "[union(variables('apiBaseSettings'), variables('sqlSettings'), variables('authSettings'))]",
+            "authSettings": "[if(empty(parameters('azureAdTenantId')), createObject(), createObject('AzureAd__Instance', environment().authentication.loginEndpoint, 'AzureAd__TenantId', parameters('azureAdTenantId'), 'AzureAd__ClientId', parameters('azureAdClientId')))]",
             "workerBaseSettings": {
               "ServiceBus__FullyQualifiedNamespace": "[parameters('serviceBusFqdn')]",
               "Consumers__Redeem__EntityPath": "redeem-requests",
@@ -768,8 +773,7 @@
               "Outbox__BatchSize": "20",
               "Outbox__MaxAttempts": "5",
               "WEBSITE_RUN_FROM_PACKAGE": "1"
-            },
-            "workerSettings": "[union(variables('workerBaseSettings'), variables('sqlSettings'))]"
+            }
           },
           "resources": [
             {
@@ -817,7 +821,7 @@
               "type": "Microsoft.Web/sites/config",
               "apiVersion": "2024-11-01",
               "name": "[format('{0}/{1}', parameters('apiAppName'), 'appsettings')]",
-              "properties": "[union(variables('apiSettings'), createObject('ASPNETCORE_ENVIRONMENT', 'Production'))]",
+              "properties": "[union(union(variables('apiBaseSettings'), variables('sqlSettings'), variables('authSettings'), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString)), createObject('ASPNETCORE_ENVIRONMENT', 'Production'))]",
               "dependsOn": [
                 "[resourceId('Microsoft.Web/sites', parameters('apiAppName'))]"
               ]
@@ -869,7 +873,7 @@
               "type": "Microsoft.Web/sites/slots/config",
               "apiVersion": "2024-11-01",
               "name": "[format('{0}/{1}/{2}', parameters('apiAppName'), 'staging', 'appsettings')]",
-              "properties": "[union(variables('apiSettings'), createObject('ASPNETCORE_ENVIRONMENT', 'Staging', 'WEBSITE_SWAP_WARMUP_PING_PATH', parameters('apiHealthCheckPath'), 'WEBSITE_SWAP_WARMUP_PING_STATUSES', '200'))]",
+              "properties": "[union(union(variables('apiBaseSettings'), variables('sqlSettings'), variables('authSettings'), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString)), createObject('ASPNETCORE_ENVIRONMENT', 'Staging', 'WEBSITE_SWAP_WARMUP_PING_PATH', parameters('apiHealthCheckPath'), 'WEBSITE_SWAP_WARMUP_PING_STATUSES', '200'))]",
               "dependsOn": [
                 "[resourceId('Microsoft.Web/sites/slots', parameters('apiAppName'), 'staging')]"
               ]
@@ -905,7 +909,7 @@
               "type": "Microsoft.Web/sites/config",
               "apiVersion": "2024-11-01",
               "name": "[format('{0}/{1}', parameters('workerAppName'), 'appsettings')]",
-              "properties": "[variables('workerSettings')]",
+              "properties": "[union(variables('workerBaseSettings'), variables('sqlSettings'), createObject('APPLICATIONINSIGHTS_CONNECTION_STRING', reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString))]",
               "dependsOn": [
                 "[resourceId('Microsoft.Web/sites', parameters('workerAppName'))]"
               ]
@@ -940,6 +944,7 @@
         }
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
         "[resourceId('Microsoft.Resources/deployments', 'servicebus')]",
         "[resourceId('Microsoft.Resources/deployments', 'storage')]"
       ]

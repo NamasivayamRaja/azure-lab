@@ -19,6 +19,8 @@ builder.ConfigureFunctionsWebApplication();
 
 var cfg = builder.Configuration;
 
+AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true);
+
 builder.Services
     .AddApplicationInsightsTelemetryWorkerService()
     .ConfigureFunctionsApplicationInsights();

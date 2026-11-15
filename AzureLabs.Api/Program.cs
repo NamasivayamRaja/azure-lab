@@ -1,4 +1,5 @@
 using Azure.Messaging.ServiceBus;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using AzureLab.Data;
 using AzureLab.Messaging;
 using AzureLab.Rag;
@@ -112,14 +113,23 @@ builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks()
     .AddCheck<ApiSqlReadinessHealthCheck>("sql", failureStatus: HealthStatus.Unhealthy, tags: ["ready"]);
 
-builder.Services.AddOpenTelemetry()
+AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true);
+
+var otelBuilder = builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("azurelab-api"))
     .WithTracing(t =>
     {
-        t.AddSource(RagTelemetry.Name).AddAspNetCoreInstrumentation();
-        if (builder.Environment.IsDevelopment()) t.AddConsoleExporter();   // cloud week 1: Azure Monitor
+        t.AddSource(RagTelemetry.Name)
+            .AddSource("Azure.Messaging.ServiceBus.*")
+            .AddAspNetCoreInstrumentation();
+        if (builder.Environment.IsDevelopment()) t.AddConsoleExporter();
     })
     .WithMetrics(m => m.AddMeter(RagTelemetry.Name));                      // read locally with dotnet-counters
+
+if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+{
+    otelBuilder.UseAzureMonitor();
+}
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
