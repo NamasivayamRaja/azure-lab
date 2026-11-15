@@ -32,7 +32,7 @@ HANDOFF BLOCK FOR DAY 4 — OBSERVABILITY, ALERTS & PRODUCTION HARDENING
 
 3. DEPLOY IDENTITY & FEDERATED CREDENTIALS
 - Identity:            id-azurelab-github-dev-cin (User-Assigned Managed Identity in rg-azurelab-ndvd-dev-cin)
-- Principal ID:        1d8a9ab8-84b9-4969-872b-ca9eb3633a86
+- Principal ID:        `<DEPLOY_IDENTITY_PRINCIPAL_ID>`
 - Issuer / Audience:   https://token.actions.githubusercontent.com / api://AzureADTokenExchange
 
 | Credential Name | Exact Subject (`sub`) | Purpose |

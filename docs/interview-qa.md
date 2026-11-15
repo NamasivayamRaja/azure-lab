@@ -52,3 +52,30 @@
 
 8. **Why is the Worker deployed without a staging slot, and what makes it safe?**
    A Worker staging slot would compete with production on Service Bus queues/topics and `dbo.OutboxMessages`. Direct deploy is safe because App Service sends `SIGTERM` for graceful drain, unfinished Service Bus peek-locks/30s Outbox leases expire, and idempotent handlers make redelivery a no-op.
+
+
+## Day 4 — Authentication & Authorization (Entra ID / OAuth2 / OIDC)
+
+1. **401 Unauthorized vs. 403 Forbidden?**
+   `401` means **authentication failed** (no token, expired token, bad signature, wrong `aud`/`iss`)—the caller's identity is unknown or untrusted. `403` means **authentication succeeded**, but **authorization failed** (missing `scp`/`roles`, or caller `oid` lacks access to the requested `eventId`).
+
+2. **Delegated Scopes (`scp`) vs. Application Roles (`roles`)?**
+   Delegated scopes (`scp`) apply when a client acts **on behalf of a signed-in user** (`effective permissions = user ∩ app`). Application roles (`roles`) apply either to user/group role assignments or to **daemon/Managed Identity** callers (`idtyp: app`) acting as themselves with no user present.
+
+3. **How do you validate Entra ID v2 access tokens correctly?**
+   Use `Microsoft.Identity.Web` (`AddMicrosoftIdentityWebApi`) which validates four pillars: **signature** (RS256 via OIDC JWKS discovery), **issuer** (`https://login.microsoftonline.com/<tid>/v2.0`), **audience** (bare `ClientId` GUID in v2 tokens), and **lifetime** (`nbf`/`exp`). Never validate ID tokens on a resource API.
+
+4. **What is IDOR / BOLA, and how did we fix it on `/redeem`?**
+   Broken Object-Level Authorization (IDOR) occurs when an API trusts a caller-supplied identifier (e.g., `UserId` in `RedeemRequestDto`) instead of deriving identity from the verified token. We removed `UserId` from the request DTO and derived it from the token's immutable `oid` claim.
+
+5. **App Service Easy Auth vs. In-code JWT Bearer (`Microsoft.Identity.Web`)?**
+   Easy Auth runs as a zero-code reverse-proxy sidecar on Azure App Service, which is convenient for simple perimeter auth but Azure-locked, lacks local dev parity, and makes fine-grained policies/OBO awkward. In-code `Microsoft.Identity.Web` is portable, identical locally and in Azure, and integrates natively with ASP.NET Core `[Authorize]` policies and `IEventAccessService`.
+
+6. **Why never trust a client-sent `userId` or `event_id` list, and why use `oid` instead of `email`/`sub`?**
+   Request bodies and unsigned headers are attacker-controlled. `email`/`upn` are mutable (name changes), and `sub` in Entra v2 is pairwise (unique per client app), whereas `oid` (+ `tid` if multi-tenant) is immutable and consistent across all apps in the tenant.
+
+7. **How does Managed Identity work for Service-to-Service calls?**
+   Assign an **App Role** (e.g., `Api.Service`) on the API's Service Principal to the caller's Managed Identity via Graph `appRoleAssignments`. The caller acquires a token for `api://<api-client-id>/.default` using `ManagedIdentityCredential` (zero secrets), and Entra emits `"roles": ["Api.Service"]` and `"idtyp": "app"`.
+
+8. **How do token lifetime and revocation work with stateless JWTs?**
+   Access tokens are short-lived (~1 hour) and validated statelessly by signature/claims, so revoking a user or role doesn't invalidate an already-issued JWT until it expires. Keep access-token lifetimes short, rely on Entra Continuous Access Evaluation (CAE) for critical events (user disabled/password reset), and check live DB ACLs (`EventEnrollments`) for per-resource permissions.
