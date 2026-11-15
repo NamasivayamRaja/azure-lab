@@ -235,6 +235,7 @@ module roleAssignments 'modules/roleassignments.bicep' = {
     apiStagingPrincipalId: appService.outputs.apiStagingPrincipalId
     workerPrincipalId: appService.outputs.workerPrincipalId
     functionPrincipalId: functionApp.outputs.principalId
+    functionStagingPrincipalId: functionApp.outputs.stagingPrincipalId
     grantStagingSlotRoles: grantStagingSlotRoles
     apiDevEndpointsEnabled: apiDevEndpointsEnabled
   }

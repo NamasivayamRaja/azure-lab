@@ -9,7 +9,7 @@ param storageSku = 'Standard_LRS'
 param blobSoftDeleteDays = 7
 param quarantineRetentionDays = 7
 
-param appServicePlanSku = 'S1'
+param appServicePlanSku = 'P0v3'
 
 param logRetentionDays = 30
 param logDailyQuotaGb = 1
