@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<EventDocument> EventDocuments => Set<EventDocument>();
     public DbSet<RedeemProposal> RedeemProposals => Set<RedeemProposal>();
     public DbSet<OfferInventory> OfferInventories => Set<OfferInventory>();
+    public DbSet<EventEnrollment> EventEnrollments => Set<EventEnrollment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -79,6 +80,13 @@ public class AppDbContext : DbContext
             b.HasKey(x => x.OfferId);
             b.Property(x => x.RowVersion)
                 .IsRowVersion();
+        });
+
+        modelBuilder.Entity<EventEnrollment>(b =>
+        {
+            b.HasKey(x => new { x.EventId, x.UserId });
+            b.Property(x => x.UserId).HasMaxLength(200).IsRequired();
+            b.HasIndex(x => x.UserId);
         });
     }
 }
