@@ -22,6 +22,10 @@ param apiBlobContainerName = 'bulk-player-enrollment'
 param grantStagingSlotRoles = false
 param apiDevEndpointsEnabled = false
 
+// Set via environment / GitHub repo variables (public repo: no tenant or app IDs committed)
+param azureAdTenantId = readEnvironmentVariable('AZURE_TENANT_ID', '')
+param azureAdClientId = readEnvironmentVariable('AZURELAB_API_CLIENT_ID', '')
+
 
 // ---------- Azure SQL (Step 5) ----------
 param deploySql = true
