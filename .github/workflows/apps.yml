@@ -109,12 +109,13 @@ jobs:
       - name: Deploy, smoke-test & swap Functions (staging -> prod, then stop staging)
         run: |
           az functionapp start -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging
-          az functionapp deployment source config-zip \
+          az webapp deploy \
             --resource-group ${{ env.RG_NAME }} \
             --name ${{ env.FUNC_APP }} \
             --slot staging \
-            --src functions.zip \
-            --timeout 600
+            --src-path functions.zip \
+            --type zip \
+            --timeout 600000
           FUNC_STAGING_HOST=$(az functionapp show -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging --query defaultHostName -o tsv)
           curl --fail --retry 12 --retry-delay 10 --retry-all-errors "https://${FUNC_STAGING_HOST}/api/health"
           az functionapp deployment slot swap \
