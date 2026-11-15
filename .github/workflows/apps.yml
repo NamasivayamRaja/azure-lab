@@ -1,6 +1,7 @@
 name: Apps (API, Worker, Functions)
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [main]
     paths:
@@ -54,7 +55,7 @@ jobs:
         run: dotnet publish AzureLab.Functions/AzureLab_Functions.csproj -c Release -o publish/functions
 
       - name: Upload publish artifacts
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: app-packages
@@ -62,7 +63,7 @@ jobs:
           retention-days: 3
 
   deploy-dev:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     needs: build-and-publish
     runs-on: ubuntu-latest
     environment: dev
@@ -86,8 +87,9 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy API to staging slot
+      - name: Deploy, smoke-test & swap API (staging -> prod, then stop staging)
         run: |
+          az webapp start -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --slot staging
           az webapp deploy \
             --resource-group ${{ env.RG_NAME }} \
             --name ${{ env.API_APP }} \
@@ -95,15 +97,32 @@ jobs:
             --src-path api.zip \
             --type zip \
             --timeout 600000
+          API_STAGING_HOST=$(az webapp show -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --slot staging --query defaultHostName -o tsv)
+          curl --fail --retry 12 --retry-delay 10 --retry-all-errors "https://${API_STAGING_HOST}/health"
+          az webapp deployment slot swap \
+            --resource-group ${{ env.RG_NAME }} \
+            --name ${{ env.API_APP }} \
+            --slot staging \
+            --target-slot production
+          az webapp stop -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --slot staging
 
-      - name: Deploy Functions to staging slot
+      - name: Deploy, smoke-test & swap Functions (staging -> prod, then stop staging)
         run: |
+          az functionapp start -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging
           az functionapp deployment source config-zip \
             --resource-group ${{ env.RG_NAME }} \
             --name ${{ env.FUNC_APP }} \
             --slot staging \
             --src functions.zip \
             --timeout 600
+          FUNC_STAGING_HOST=$(az functionapp show -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging --query defaultHostName -o tsv)
+          curl --fail --retry 12 --retry-delay 10 --retry-all-errors "https://${FUNC_STAGING_HOST}/api/health"
+          az functionapp deployment slot swap \
+            --resource-group ${{ env.RG_NAME }} \
+            --name ${{ env.FUNC_APP }} \
+            --slot staging \
+            --target-slot production
+          az functionapp stop -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging
 
       - name: Deploy Worker (direct with graceful shutdown)
         run: |
@@ -113,26 +132,6 @@ jobs:
             --src-path worker.zip \
             --type zip \
             --timeout 600000
-
-      - name: Smoke test staging slots
-        run: |
-          API_STAGING_HOST=$(az webapp show -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --slot staging --query defaultHostName -o tsv)
-          FUNC_STAGING_HOST=$(az functionapp show -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging --query defaultHostName -o tsv)
-          curl --fail --retry 12 --retry-delay 10 --retry-all-errors "https://${API_STAGING_HOST}/health"
-          curl --fail --retry 12 --retry-delay 10 --retry-all-errors "https://${FUNC_STAGING_HOST}/api/health"
-
-      - name: Swap API & Functions staging -> production
-        run: |
-          az webapp deployment slot swap \
-            --resource-group ${{ env.RG_NAME }} \
-            --name ${{ env.API_APP }} \
-            --slot staging \
-            --target-slot production
-          az functionapp deployment slot swap \
-            --resource-group ${{ env.RG_NAME }} \
-            --name ${{ env.FUNC_APP }} \
-            --slot staging \
-            --target-slot production
 
       - name: Smoke test production
         run: |
