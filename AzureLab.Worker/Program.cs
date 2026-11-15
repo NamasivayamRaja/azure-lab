@@ -49,7 +49,9 @@ AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true);
 
 var otelBuilder = builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("azurelab-worker"))
-    .WithTracing(t => t.AddSource("Azure.Messaging.ServiceBus.*"));
+    .WithTracing(t => t
+        .AddSource("AzureLab.Outbox")
+        .AddSource("Azure.Messaging.ServiceBus.*"));
 
 if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
 {
