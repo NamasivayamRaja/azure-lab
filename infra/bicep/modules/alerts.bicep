@@ -76,7 +76,7 @@ resource sbDlqAlerts 'Microsoft.Insights/metricAlerts@2018-03-01' = [
             name: 'DeadletteredMessages'
             metricName: 'DeadletteredMessages'
             metricNamespace: 'Microsoft.ServiceBus/namespaces'
-            timeAggregation: 'Total'
+            timeAggregation: 'Maximum'
             operator: 'GreaterThan'
             threshold: 0
             criterionType: 'StaticThresholdCriterion'
@@ -276,7 +276,7 @@ resource apiAvailabilityAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15
           threshold: 0
           failingPeriods: {
             numberOfEvaluationPeriods: 1
-            minEvaluationPeriodsToAlert: 1
+            minFailingPeriodsToAlert: 1
           }
         }
       ]
@@ -328,7 +328,7 @@ resource outboxLagAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-15-previ
           threshold: 0
           failingPeriods: {
             numberOfEvaluationPeriods: 1
-            minEvaluationPeriodsToAlert: 1
+            minFailingPeriodsToAlert: 1
           }
         }
       ]
@@ -368,7 +368,7 @@ resource functionFailuresAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-1
           threshold: 0
           failingPeriods: {
             numberOfEvaluationPeriods: 1
-            minEvaluationPeriodsToAlert: 1
+            minFailingPeriodsToAlert: 1
           }
         }
       ]
