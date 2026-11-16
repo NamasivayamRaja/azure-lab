@@ -1,0 +1,131 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "envName": {
+      "value": "dev"
+    },
+    "regionShort": {
+      "value": "cin"
+    },
+    "owner": {
+      "value": "unassigned"
+    },
+    "storageSku": {
+      "value": "Standard_LRS"
+    },
+    "blobSoftDeleteDays": {
+      "value": 7
+    },
+    "quarantineRetentionDays": {
+      "value": 7
+    },
+    "appServicePlanSku": {
+      "value": "P0v3"
+    },
+    "logRetentionDays": {
+      "value": 30
+    },
+    "logDailyQuotaGb": {
+      "value": 1
+    },
+    "deployKeyVault": {
+      "value": false
+    },
+    "keyVaultSoftDeleteDays": {
+      "value": 7
+    },
+    "keyVaultPurgeProtection": {
+      "value": false
+    },
+    "apiBlobContainerName": {
+      "value": "bulk-player-enrollment"
+    },
+    "grantStagingSlotRoles": {
+      "value": false
+    },
+    "apiDevEndpointsEnabled": {
+      "value": false
+    },
+    "azureAdTenantId": {
+      "value": ""
+    },
+    "azureAdClientId": {
+      "value": ""
+    },
+    "alertEmail": {
+      "value": ""
+    },
+    "deploySql": {
+      "value": true
+    },
+    "sqlAdminLogin": {
+      "value": ""
+    },
+    "sqlAdminObjectId": {
+      "value": ""
+    },
+    "sqlAdminPrincipalType": {
+      "value": "User"
+    },
+    "sqlSkuName": {
+      "value": "GP_S_Gen5_1"
+    },
+    "sqlServerless": {
+      "value": true
+    },
+    "sqlMinCapacity": {
+      "value": "0.5"
+    },
+    "sqlAutoPauseDelayMinutes": {
+      "value": 15
+    },
+    "sqlUseFreeLimit": {
+      "value": true
+    },
+    "sqlFreeLimitExhaustionBehavior": {
+      "value": "BillOverUsage"
+    },
+    "sqlBackupStorageRedundancy": {
+      "value": "Local"
+    },
+    "sqlZoneRedundant": {
+      "value": false
+    },
+    "sqlAllowedIps": {
+      "value": [
+        "135.13.177.151",
+        "135.13.180.237",
+        "20.192.171.20",
+        "20.204.211.52",
+        "20.204.214.217",
+        "20.204.214.68",
+        "20.219.174.118",
+        "20.235.194.47",
+        "20.244.77.107",
+        "4.187.190.117",
+        "4.187.192.56",
+        "4.187.192.83",
+        "4.187.202.192",
+        "4.187.204.15",
+        "4.187.214.53",
+        "4.188.115.70",
+        "4.188.89.53",
+        "4.188.89.72",
+        "4.224.115.37",
+        "4.224.115.87",
+        "4.224.138.26",
+        "4.224.139.74",
+        "4.224.71.1",
+        "4.224.71.224",
+        "4.247.208.118",
+        "4.247.208.154",
+        "4.247.214.195",
+        "4.247.215.225",
+        "4.247.236.85",
+        "98.70.233.34",
+        "98.70.238.182"
+      ]
+    }
+  }
+}

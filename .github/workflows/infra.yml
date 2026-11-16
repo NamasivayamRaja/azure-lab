@@ -25,6 +25,7 @@ env:
   AZURELAB_SQL_ADMIN_OID: ${{ vars.AZURELAB_SQL_ADMIN_OID }}
   AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   AZURELAB_API_CLIENT_ID: ${{ vars.AZURELAB_API_CLIENT_ID }}
+  ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
 
 jobs:
   build-and-whatif:
