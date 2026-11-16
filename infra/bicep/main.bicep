@@ -40,6 +40,7 @@ param apiDevEndpointsEnabled bool = false
 
 param azureAdTenantId string = ''
 param azureAdClientId string = ''
+param alertEmail string = ''
 
 @allowed([
   'S1'
@@ -273,6 +274,25 @@ module keyVault 'modules/keyvault.bicep' = if (deployKeyVault) {
     softDeleteRetentionDays: keyVaultSoftDeleteDays
     enablePurgeProtection: keyVaultPurgeProtection
   }
+}
+
+module alerts 'modules/alerts.bicep' = {
+  name: 'alerts'
+  params: {
+    location: location
+    tags: tags
+    alertEmail: alertEmail
+    serviceBusName: serviceBus.outputs.name
+    apiAppName: names.apiApp
+    apiHostName: appService.outputs.apiDefaultHostName
+    functionAppName: names.functionApp
+    appInsightsName: monitoring.outputs.appInsightsName
+    workspaceId: monitoring.outputs.workspaceId
+  }
+  dependsOn: [
+    appService
+    functionApp
+  ]
 }
 
 output resourceNames object = names

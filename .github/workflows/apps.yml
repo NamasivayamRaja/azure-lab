@@ -11,6 +11,7 @@ on:
       - 'AzureLab.Data/**'
       - 'AzureLab.Messaging/**'
       - 'AzureLab.Rag/**'
+      - 'AzureLab.Assistant/**'
       - '.github/workflows/apps.yml'
   push:
     branches: [main]
@@ -21,6 +22,7 @@ on:
       - 'AzureLab.Data/**'
       - 'AzureLab.Messaging/**'
       - 'AzureLab.Rag/**'
+      - 'AzureLab.Assistant/**'
       - '.github/workflows/apps.yml'
 
 permissions:
@@ -38,9 +40,42 @@ env:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    outputs:
+      api: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.api }}
+      worker: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.worker }}
+      functions: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.functions }}
+      ef: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.changes.outputs.ef }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Detect changed apps & dependencies
+        if: github.event_name != 'workflow_dispatch'
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'AzureLabs.Api/**'
+              - 'AzureLab.Data/**'
+              - 'AzureLab.Messaging/**'
+              - 'AzureLab.Rag/**'
+              - 'AzureLab.Assistant/**'
+              - '.github/workflows/apps.yml'
+            worker:
+              - 'AzureLab.Worker/**'
+              - 'AzureLab.Data/**'
+              - 'AzureLab.Messaging/**'
+              - '.github/workflows/apps.yml'
+            functions:
+              - 'AzureLab.Functions/**'
+              - 'AzureLab.Data/**'
+              - 'AzureLab.Messaging/**'
+              - 'AzureLab.Rag/**'
+              - '.github/workflows/apps.yml'
+            ef:
+              - 'AzureLab.Data/Migrations/**'
+              - '.github/workflows/apps.yml'
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
@@ -48,15 +83,19 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build & Publish API
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.api == 'true'
         run: dotnet publish AzureLabs.Api/AzureLabs.Api.csproj -c Release -o publish/api
 
       - name: Build & Publish Worker
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.worker == 'true'
         run: dotnet publish AzureLab.Worker/AzureLab.Worker.csproj -c Release -o publish/worker
 
       - name: Build & Publish Functions
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.functions == 'true'
         run: dotnet publish AzureLab.Functions/AzureLab_Functions.csproj -c Release -o publish/functions
 
       - name: Build EF Migrations Bundle
+        if: github.event_name == 'workflow_dispatch' || steps.changes.outputs.ef == 'true'
         run: |
           dotnet tool install --global dotnet-ef --version 10.*
           dotnet ef migrations bundle \
@@ -66,7 +105,7 @@ jobs:
             --force -o publish/efbundle
 
       - name: Upload publish artifacts
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && (github.event_name == 'workflow_dispatch' || steps.changes.outputs.api == 'true' || steps.changes.outputs.worker == 'true' || steps.changes.outputs.functions == 'true' || steps.changes.outputs.ef == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: app-packages
@@ -75,7 +114,7 @@ jobs:
           retention-days: 3
 
   deploy-dev:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && (needs.build-and-publish.outputs.api == 'true' || needs.build-and-publish.outputs.worker == 'true' || needs.build-and-publish.outputs.functions == 'true' || needs.build-and-publish.outputs.ef == 'true')
     needs: build-and-publish
     runs-on: ubuntu-latest
     environment: dev
@@ -88,9 +127,9 @@ jobs:
 
       - name: Zip packages
         run: |
-          (cd publish/api && zip -r ../../api.zip .)
-          (cd publish/worker && zip -r ../../worker.zip .)
-          (cd publish/functions && zip -r ../../functions.zip .)
+          if [ -d publish/api ]; then (cd publish/api && zip -r ../../api.zip .); fi
+          if [ -d publish/worker ]; then (cd publish/worker && zip -r ../../worker.zip .); fi
+          if [ -d publish/functions ]; then (cd publish/functions && zip -r ../../functions.zip .); fi
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -100,6 +139,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Open temporary SQL firewall rule for runner
+        if: needs.build-and-publish.outputs.ef == 'true'
         run: |
           RUNNER_IP=$(curl -s https://api.ipify.org)
           az sql server firewall-rule create \
@@ -108,18 +148,20 @@ jobs:
             --start-ip-address "$RUNNER_IP" --end-ip-address "$RUNNER_IP"
 
       - name: Run EF Core Migrations (Entra OIDC)
+        if: needs.build-and-publish.outputs.ef == 'true'
         run: |
           chmod +x publish/efbundle
           ./publish/efbundle --verbose --connection "Server=tcp:${{ env.SQL_SERVER }}.database.windows.net,1433;Database=${{ env.SQL_DB }};Authentication=Active Directory Default;Encrypt=True;TrustServerCertificate=False;Connection Timeout=120"
 
       - name: Remove temporary SQL firewall rule
-        if: always()
+        if: always() && needs.build-and-publish.outputs.ef == 'true'
         run: |
           az sql server firewall-rule delete \
             -g ${{ env.RG_NAME }} -s ${{ env.SQL_SERVER }} \
             -n "gh-runner-${{ github.run_id }}" || true
 
       - name: Deploy, smoke-test & swap API (staging -> prod, then stop staging)
+        if: needs.build-and-publish.outputs.api == 'true'
         run: |
           az webapp start -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --slot staging
           az webapp deploy \
@@ -139,6 +181,7 @@ jobs:
           az webapp stop -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --slot staging
 
       - name: Deploy, smoke-test & swap Functions (staging -> prod, then stop staging)
+        if: needs.build-and-publish.outputs.functions == 'true'
         run: |
           az functionapp start -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging
           az webapp deploy \
@@ -158,6 +201,7 @@ jobs:
           az functionapp stop -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --slot staging
 
       - name: Deploy Worker (direct with graceful shutdown)
+        if: needs.build-and-publish.outputs.worker == 'true'
         run: |
           az webapp deploy \
             --resource-group ${{ env.RG_NAME }} \
@@ -167,8 +211,13 @@ jobs:
             --timeout 600000
 
       - name: Smoke test production
+        if: needs.build-and-publish.outputs.api == 'true' || needs.build-and-publish.outputs.functions == 'true'
         run: |
-          API_HOST=$(az webapp show -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --query defaultHostName -o tsv)
-          FUNC_HOST=$(az functionapp show -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --query defaultHostName -o tsv)
-          curl --fail --retry 6 --retry-delay 5 --retry-all-errors "https://${API_HOST}/health"
-          curl --fail --retry 6 --retry-delay 5 --retry-all-errors "https://${FUNC_HOST}/api/health"
+          if [ "${{ needs.build-and-publish.outputs.api }}" = "true" ]; then
+            API_HOST=$(az webapp show -g ${{ env.RG_NAME }} -n ${{ env.API_APP }} --query defaultHostName -o tsv)
+            curl --fail --retry 6 --retry-delay 5 --retry-all-errors "https://${API_HOST}/health"
+          fi
+          if [ "${{ needs.build-and-publish.outputs.functions }}" = "true" ]; then
+            FUNC_HOST=$(az functionapp show -g ${{ env.RG_NAME }} -n ${{ env.FUNC_APP }} --query defaultHostName -o tsv)
+            curl --fail --retry 6 --retry-delay 5 --retry-all-errors "https://${FUNC_HOST}/api/health"
+          fi
