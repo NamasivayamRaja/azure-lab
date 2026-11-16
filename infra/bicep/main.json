@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "11636106103155239659"
+      "templateHash": "7937927148748796595"
     }
   },
   "parameters": {
@@ -85,6 +85,10 @@
       "defaultValue": ""
     },
     "azureAdClientId": {
+      "type": "string",
+      "defaultValue": ""
+    },
+    "alertEmail": {
       "type": "string",
       "defaultValue": ""
     },
@@ -2151,6 +2155,457 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'monitoring')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "alerts",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "alertEmail": {
+            "value": "[parameters('alertEmail')]"
+          },
+          "serviceBusName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'servicebus'), '2025-04-01').outputs.name.value]"
+          },
+          "apiAppName": {
+            "value": "[variables('names').apiApp]"
+          },
+          "apiHostName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'appservice'), '2025-04-01').outputs.apiDefaultHostName.value]"
+          },
+          "functionAppName": {
+            "value": "[variables('names').functionApp]"
+          },
+          "appInsightsName": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.appInsightsName.value]"
+          },
+          "workspaceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitoring'), '2025-04-01').outputs.workspaceId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.48.1.52935",
+              "templateHash": "9553532806317575324"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            },
+            "alertEmail": {
+              "type": "string",
+              "defaultValue": ""
+            },
+            "serviceBusName": {
+              "type": "string"
+            },
+            "apiAppName": {
+              "type": "string"
+            },
+            "apiHostName": {
+              "type": "string"
+            },
+            "functionAppName": {
+              "type": "string"
+            },
+            "appInsightsName": {
+              "type": "string"
+            },
+            "workspaceId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "sbDlqEntities": [
+              {
+                "suffix": "redeem-requests",
+                "entityName": "redeem-requests"
+              },
+              {
+                "suffix": "offer-events-ledger",
+                "entityName": "offer-events/Subscriptions/ledger"
+              },
+              {
+                "suffix": "offer-events-notification",
+                "entityName": "offer-events/Subscriptions/notification"
+              }
+            ]
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Insights/actionGroups",
+              "apiVersion": "2023-01-01",
+              "name": "ag-azurelab-ops",
+              "location": "Global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "groupShortName": "AzureLabOps",
+                "enabled": true,
+                "emailReceivers": "[if(empty(parameters('alertEmail')), createArray(), createArray(createObject('name', 'OpsEmail', 'emailAddress', parameters('alertEmail'), 'useCommonAlertSchema', true())))]"
+              }
+            },
+            {
+              "copy": {
+                "name": "sbDlqAlerts",
+                "count": "[length(variables('sbDlqEntities'))]"
+              },
+              "type": "Microsoft.Insights/metricAlerts",
+              "apiVersion": "2018-03-01",
+              "name": "[format('alert-sb-dlq-{0}', variables('sbDlqEntities')[copyIndex()].suffix)]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "description": "[format('Runbook: Run DlqTool peek on {0}, inspect DeadLetterReason + CorrelationId in KQL, fix root cause, then resubmit.', variables('sbDlqEntities')[copyIndex()].entityName)]",
+                "severity": 1,
+                "enabled": true,
+                "scopes": [
+                  "[resourceId('Microsoft.ServiceBus/namespaces', parameters('serviceBusName'))]"
+                ],
+                "evaluationFrequency": "PT1M",
+                "windowSize": "PT5M",
+                "criteria": {
+                  "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+                  "allOf": [
+                    {
+                      "name": "DeadletteredMessages",
+                      "metricName": "DeadletteredMessages",
+                      "metricNamespace": "Microsoft.ServiceBus/namespaces",
+                      "timeAggregation": "Total",
+                      "operator": "GreaterThan",
+                      "threshold": 0,
+                      "criterionType": "StaticThresholdCriterion",
+                      "dimensions": [
+                        {
+                          "name": "EntityName",
+                          "operator": "Include",
+                          "values": [
+                            "[variables('sbDlqEntities')[copyIndex()].entityName]"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "actions": [
+                  {
+                    "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/metricAlerts",
+              "apiVersion": "2018-03-01",
+              "name": "alert-sb-active-stuck-redeem",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "description": "Runbook: Check Worker health (/health/ready) and AppTraces for consumer errors or lock loss on redeem-requests.",
+                "severity": 2,
+                "enabled": true,
+                "scopes": [
+                  "[resourceId('Microsoft.ServiceBus/namespaces', parameters('serviceBusName'))]"
+                ],
+                "evaluationFrequency": "PT5M",
+                "windowSize": "PT15M",
+                "criteria": {
+                  "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+                  "allOf": [
+                    {
+                      "name": "ActiveMessagesStuck",
+                      "metricName": "ActiveMessages",
+                      "metricNamespace": "Microsoft.ServiceBus/namespaces",
+                      "timeAggregation": "Minimum",
+                      "operator": "GreaterThan",
+                      "threshold": 0,
+                      "criterionType": "StaticThresholdCriterion",
+                      "dimensions": [
+                        {
+                          "name": "EntityName",
+                          "operator": "Include",
+                          "values": [
+                            "redeem-requests"
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "actions": [
+                  {
+                    "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/metricAlerts",
+              "apiVersion": "2018-03-01",
+              "name": "alert-api-http-5xx",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "description": "Runbook: Run KQL Failed Requests & Dependencies; check SQL connectivity, Storage 403s, or recent slot swap.",
+                "severity": 1,
+                "enabled": true,
+                "scopes": [
+                  "[resourceId('Microsoft.Web/sites', parameters('apiAppName'))]"
+                ],
+                "evaluationFrequency": "PT1M",
+                "windowSize": "PT5M",
+                "criteria": {
+                  "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+                  "allOf": [
+                    {
+                      "name": "Http5xx",
+                      "metricName": "Http5xx",
+                      "metricNamespace": "Microsoft.Web/sites",
+                      "timeAggregation": "Total",
+                      "operator": "GreaterThan",
+                      "threshold": 2,
+                      "criterionType": "StaticThresholdCriterion"
+                    }
+                  ]
+                },
+                "actions": [
+                  {
+                    "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/metricAlerts",
+              "apiVersion": "2018-03-01",
+              "name": "alert-api-latency",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "description": "Runbook: Run KQL Slow SQL Dependencies (>500ms); check serverless SQL auto-resume or DTU/vCore saturation.",
+                "severity": 2,
+                "enabled": true,
+                "scopes": [
+                  "[resourceId('Microsoft.Web/sites', parameters('apiAppName'))]"
+                ],
+                "evaluationFrequency": "PT1M",
+                "windowSize": "PT5M",
+                "criteria": {
+                  "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria",
+                  "allOf": [
+                    {
+                      "name": "HttpResponseTime",
+                      "metricName": "HttpResponseTime",
+                      "metricNamespace": "Microsoft.Web/sites",
+                      "timeAggregation": "Average",
+                      "operator": "GreaterThan",
+                      "threshold": 2,
+                      "criterionType": "StaticThresholdCriterion"
+                    }
+                  ]
+                },
+                "actions": [
+                  {
+                    "actionGroupId": "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/webtests",
+              "apiVersion": "2022-06-15",
+              "name": "webtest-api-health-live",
+              "location": "[parameters('location')]",
+              "kind": "standard",
+              "tags": "[union(parameters('tags'), createObject(format('hidden-link:{0}', resourceId('Microsoft.Insights/components', parameters('appInsightsName'))), 'Resource'))]",
+              "properties": {
+                "Name": "webtest-api-health-live",
+                "Description": "Standard availability test on API /health/live",
+                "Enabled": true,
+                "Frequency": 300,
+                "Timeout": 30,
+                "Kind": "standard",
+                "RetryEnabled": true,
+                "Locations": [
+                  {
+                    "Id": "us-tx-sn1-azr"
+                  },
+                  {
+                    "Id": "us-il-ch1-azr"
+                  }
+                ],
+                "Request": {
+                  "HttpVerb": "GET",
+                  "RequestUrl": "[format('https://{0}/health/live', parameters('apiHostName'))]",
+                  "FollowRedirects": false,
+                  "ParseDependentRequests": false
+                },
+                "ValidationRules": {
+                  "ExpectedHttpStatusCode": 200,
+                  "SSLCheck": true,
+                  "SSLCertRemainingLifetimeCheck": 7
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Insights/scheduledQueryRules",
+              "apiVersion": "2023-03-15-preview",
+              "name": "alert-api-health-availability",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "displayName": "API /health/live availability failed",
+                "description": "Runbook: Check App Service status, recent deployment/swap, and /health/live HTTP logs.",
+                "severity": 1,
+                "enabled": true,
+                "evaluationFrequency": "PT5M",
+                "windowSize": "PT5M",
+                "scopes": [
+                  "[parameters('workspaceId')]"
+                ],
+                "criteria": {
+                  "allOf": [
+                    {
+                      "query": "AppAvailabilityResults | where Name == \"webtest-api-health-live\" and Success == false",
+                      "timeAggregation": "Count",
+                      "operator": "GreaterThan",
+                      "threshold": 0,
+                      "failingPeriods": {
+                        "numberOfEvaluationPeriods": 1,
+                        "minEvaluationPeriodsToAlert": 1
+                      }
+                    }
+                  ]
+                },
+                "actions": {
+                  "actionGroups": [
+                    "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/scheduledQueryRules",
+              "apiVersion": "2023-03-15-preview",
+              "name": "alert-outbox-lag",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "displayName": "Outbox dispatch lag > 60s or Worker stopped",
+                "description": "Runbook: Check Worker app status (running?), OutboxDispatcher logs for SQL/SB errors, and OutboxMessages.RetryCount.",
+                "severity": 1,
+                "enabled": true,
+                "evaluationFrequency": "PT5M",
+                "windowSize": "PT15M",
+                "scopes": [
+                  "[parameters('workspaceId')]"
+                ],
+                "criteria": {
+                  "allOf": [
+                    {
+                      "query": "            let accepted = AppTraces\n              | where TimeGenerated > ago(15m)\n              | where Message has \"Redeem accepted\"\n              | extend CorrelationId = extract(@\"CorrelationId=([^\\s,]+)\", 1, Message)\n              | where isnotempty(CorrelationId)\n              | summarize AcceptedTime = min(TimeGenerated) by CorrelationId;\n            let sent = AppTraces\n              | where TimeGenerated > ago(15m)\n              | where Message has \"Outbox message sent\"\n              | extend CorrelationId = extract(@\"CorrelationId=([^\\s,]+)\", 1, Message)\n              | where isnotempty(CorrelationId)\n              | summarize SentTime = min(TimeGenerated) by CorrelationId;\n            accepted\n            | join kind=leftouter sent on CorrelationId\n            | where (isnull(SentTime) and AcceptedTime < ago(60s)) or datetime_diff('second', SentTime, AcceptedTime) > 60\n          ",
+                      "timeAggregation": "Count",
+                      "operator": "GreaterThan",
+                      "threshold": 0,
+                      "failingPeriods": {
+                        "numberOfEvaluationPeriods": 1,
+                        "minEvaluationPeriodsToAlert": 1
+                      }
+                    }
+                  ]
+                },
+                "actions": {
+                  "actionGroups": [
+                    "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/scheduledQueryRules",
+              "apiVersion": "2023-03-15-preview",
+              "name": "alert-function-failures",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "displayName": "Azure Functions execution failure",
+                "description": "Runbook: Query AppRequests (Success==false) and AppExceptions for func-azurelab-dev-cin-5kaayi; check Storage/SQL RBAC.",
+                "severity": 2,
+                "enabled": true,
+                "evaluationFrequency": "PT5M",
+                "windowSize": "PT5M",
+                "scopes": [
+                  "[parameters('workspaceId')]"
+                ],
+                "criteria": {
+                  "allOf": [
+                    {
+                      "query": "            union\n              (AppRequests | where AppRoleName == \"${functionAppName}\" and Success == false),\n              (AppExceptions | where AppRoleName == \"${functionAppName}\")\n          ",
+                      "timeAggregation": "Count",
+                      "operator": "GreaterThan",
+                      "threshold": 0,
+                      "failingPeriods": {
+                        "numberOfEvaluationPeriods": 1,
+                        "minEvaluationPeriodsToAlert": 1
+                      }
+                    }
+                  ]
+                },
+                "actions": {
+                  "actionGroups": [
+                    "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', 'ag-azurelab-ops')]"
+              ]
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'appservice')]",
+        "[resourceId('Microsoft.Resources/deployments', 'functionapp')]",
+        "[resourceId('Microsoft.Resources/deployments', 'monitoring')]",
+        "[resourceId('Microsoft.Resources/deployments', 'servicebus')]"
       ]
     }
   ],
