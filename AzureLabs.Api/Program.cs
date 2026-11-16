@@ -129,6 +129,7 @@ var otelBuilder = builder.Services.AddOpenTelemetry()
 if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
 {
     otelBuilder.UseAzureMonitor();
+    builder.Services.Configure<OpenTelemetry.Logs.OpenTelemetryLoggerOptions>(o => o.IncludeScopes = true);
 }
 var app = builder.Build();
 

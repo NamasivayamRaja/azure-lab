@@ -25,6 +25,7 @@ param apiDevEndpointsEnabled = false
 // Set via environment / GitHub repo variables (public repo: no tenant or app IDs committed)
 param azureAdTenantId = readEnvironmentVariable('AZURE_TENANT_ID', '')
 param azureAdClientId = readEnvironmentVariable('AZURELAB_API_CLIENT_ID', '')
+param alertEmail = readEnvironmentVariable('ALERT_EMAIL', '')
 
 
 // ---------- Azure SQL (Step 5) ----------
