@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -13,7 +13,7 @@ namespace AzureLab_Functions.Functions
         [Function("health")]
         public IActionResult Run([HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequest req)
         {
-            logger.LogDebug("Health check triggered from {RemoteIpAddress}", req.HttpContext.Connection.RemoteIpAddress);
+            logger.LogDebug("Health check triggered");
             var healthInfo = new
             {
                 Status = "Healthy",
