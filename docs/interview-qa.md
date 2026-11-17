@@ -79,3 +79,29 @@
 
 8. **How do token lifetime and revocation work with stateless JWTs?**
    Access tokens are short-lived (~1 hour) and validated statelessly by signature/claims, so revoking a user or role doesn't invalidate an already-issued JWT until it expires. Keep access-token lifetimes short, rely on Entra Continuous Access Evaluation (CAE) for critical events (user disabled/password reset), and check live DB ACLs (`EventEnrollments`) for per-resource permissions.
+
+
+---
+
+## Day 5 — Observability, Distributed Tracing & Alerting
+
+1. **How does distributed trace propagation work across an outbox and a message queue?**
+   HTTP/in-memory `Activity.Current` ends when the API commits the DB transaction and returns `202`. To preserve the trace, `Outbox.Create` persists the W3C `traceparent`/`tracestate` into `OutboxMessage.Properties`, `OutboxDispatcher` restores it via `ActivityContext.TryParse` + `ActivitySource.StartActivity`, and `ServiceBusSender` injects `Diagnostic-Id` into `ApplicationProperties` so `ServiceBusProcessor` parents the consumer span to the same `TraceId`.
+
+2. **What is the difference between `CorrelationId` and `TraceId` (`OperationId`)?**
+   `TraceId` (`OperationId`) is a technical W3C distributed-tracing identifier linking parent-child spans across hosts in Application Insights. `CorrelationId` is a business/request identifier (`X-Correlation-ID`) stored in DB rows (`RedeemTransaction`, `OutboxMessage`), Service Bus messages, and structured logs for idempotency and business-level lookup across retries or separate traces.
+
+3. **What are the trade-offs of telemetry sampling?**
+   Head-based sampling (e.g., `traceidratio` at 10%) cuts ingestion cost and storage linearly, but drops rare errors if decided before the outcome is known. Keeping 100% of `Request`s (`excludedTypes: "Request"` in Functions `host.json`) or tail/adaptive sampling preserves failure visibility while trimming noisy `Dependency`/`Trace` volume.
+
+4. **How do SLIs and SLOs relate to alerts?**
+   An **SLI** (Service Level Indicator) is the measurable signal (e.g., `POST /redeem` 5xx rate, outbox dispatch lag < 60s, `/health/live` availability). An **SLO** is the target reliability threshold (e.g., 99.9% < 2s); alerts should fire on SLO-threatening symptoms with a clear runbook, not every transient resource spike.
+
+5. **What separates an actionable alert from a noisy alert?**
+   An actionable alert indicates user/data impact (`DeadletteredMessages > 0`, `Http5xx > 2`, outbox lag > 60s), uses multi-minute evaluation windows (`PT5M`–`PT15M`) to smooth blips, and pairs with a 5-line runbook. Noisy alerts fire on single-sample latency spikes or high CPU with no operator action.
+
+6. **How do you debug a stuck message in Azure Service Bus?**
+   Check `ActiveMessages` vs `DeadletteredMessages` on the entity, verify Worker `/health/ready` and running state, query `AppTraces` for `Abandon`/`MessageLockLost` with `DeliveryCount`, or `DlqTool peek` to inspect `DeadLetterReason` + `CorrelationId` and trace the `OperationId` in App Insights.
+
+7. **How do you control observability cost without flying blind?**
+   Set a Log Analytics daily ingestion cap (`dailyQuotaGb: 1`) and 30-day retention in Bicep, sample high-volume `Trace`/`Dependency` telemetry while keeping 100% of `Request`s/errors, avoid logging payloads/PII/blob names, and rely on low-cost platform metrics (`DeadletteredMessages`, `Http5xx`) for always-on alerting.

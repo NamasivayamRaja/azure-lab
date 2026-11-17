@@ -63,3 +63,23 @@
 - **`401` on valid v2 token**: `AzureAd:Audience = api://<id>` rejected v2 tokens whose `aud` is the bare `<id>`; removed `Audience` from config and Bicep.
 - **Bicep linter `no-hardcoded-env-urls`**: Replaced `'https://login.microsoftonline.com/'` with `environment().authentication.loginEndpoint` in `appservice.bicep`.
 - **Azure `IDW10106: The 'ClientId' option must be provided`**: `infra.yml` was missing `AZURE_TENANT_ID` and `AZURELAB_API_CLIENT_ID` in `env:`; added both so `dev.bicepparam` populates `AzureAd__*` on App Service.
+
+
+## Day 5 — End-to-End Observability, Alerts & Cost/Privacy Hardening (2026-11-15 to 2026-11-17)
+
+### Decisions
+- **Azure Monitor OpenTelemetry (`1.6.0`)**: Added `Azure.Monitor.OpenTelemetry.AspNetCore` to API and Worker with `Azure.Experimental.EnableActivitySource = true` and `IncludeScopes = true` so HTTP, SQL, Service Bus, and `ILogger` scopes flow into `appi-azurelab-dev-cin` / `log-azurelab-dev-cin`.
+- **Outbox Trace Propagation (Zero Schema Change)**: Persisted W3C `traceparent`/`tracestate` in `OutboxMessage.Properties` via `Outbox.Create` and restored it in `OutboxDispatcher` (`AzureLab.Outbox` `ActivitySource`) so `ServiceBusSender` injects `Diagnostic-Id` and links API -> Outbox -> Worker -> Service Bus -> Consumers under one `OperationId`.
+- **Log-Based Outbox Lag Alert**: Chose a `scheduledQueryRules` log query (`Redeem accepted` without `Outbox message sent` within 60s) over a Worker-emitted custom metric because a stopped Worker stops emitting metrics.
+- **Selective App Deployment**: Added `dorny/paths-filter@v3` to `.github/workflows/apps.yml` so API, Worker, Functions, and EF Migrations deploy only when their code or project dependencies change.
+- **Log Privacy Hygiene**: Removed blob names (`EventDocumentStore.cs`, `PostgresDocumentVectorStore.cs`) and client IP (`HealthFunction.cs`) from logs.
+
+### Key Commands Run
+- Queried Log Analytics: `az monitor log-analytics query -w $wsId --analytics-query ...`
+- Verified alerts: `az monitor metrics alert list -g rg-azurelab-ndvd-dev-cin -o table` and `az monitor scheduled-query list -g rg-azurelab-ndvd-dev-cin -o table`
+- Chaos tests (DEV only): poison message on `redeem-requests` (5m 21s TTD), Worker stop + redeem `202` (6m 18s TTD), SQL dependency check, Storage RBAC removal + Bicep drift restore (3m 26s TTD).
+
+### Issues & Fixes
+- **`DeadletteredMessages` `BadRequest`**: Service Bus metric rejects `timeAggregation: 'Total'`; switched to `'Maximum'`.
+- **`scheduledQueryRules@2023-03-15-preview` `InvalidRequestContent`**: Renamed `minEvaluationPeriodsToAlert` -> `minFailingPeriodsToAlert`.
+- **Empty `CorrelationId`/`DeliveryCount` in `AppTraces.Properties`**: `OpenTelemetryLoggerOptions.IncludeScopes` defaults to `false`; set `IncludeScopes = true` in API & Worker.
