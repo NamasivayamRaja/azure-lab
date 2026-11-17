@@ -1,4 +1,4 @@
-﻿using AzureLab.Rag.Abstractions;
+using AzureLab.Rag.Abstractions;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Pgvector;
@@ -59,8 +59,8 @@ internal sealed class PostgresDocumentVectorStore(
                 new DateTimeOffset(newest, TimeSpan.Zero) > doc.SourceVersionUtc.ToUniversalTime())
             {
                 await tx.RollbackAsync(ct);
-                logger.LogInformation("Superseded: newer version of {Blob} already stored, skipping {Key}",
-                    doc.BlobName, doc.DocumentKey);
+                logger.LogInformation("Superseded: newer version already stored, skipping {Key}",
+                    doc.DocumentKey);
                 return ReplaceOutcome.Superseded;
             }
         }

@@ -1,4 +1,4 @@
-﻿using Azure;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
@@ -49,7 +49,7 @@ namespace AzureLabs.Api.Storage
             }
             catch (RequestFailedException ex) when (ex.Status == 409)
             {
-                logger.LogWarning(ex, "Conflict uploading blob {BlobName} for event {EventId}", blobName, eventId);
+                logger.LogWarning(ex, "Conflict uploading blob for event {EventId}", eventId);
                 return new UploadResult(true, blobName, null, contentType);
             }
         }
