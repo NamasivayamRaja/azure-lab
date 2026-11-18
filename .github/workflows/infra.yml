@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 env:
-  RG_NAME: rg-azurelab-ndvd-dev-cin
+  RG_NAME: rg-azurelab-ndvd-dev2-cin
   BICEP_FILE: infra/bicep/main.bicep
   DEV_PARAMS: infra/bicep/params/dev.bicepparam
   AZURELAB_OWNER: ${{ vars.AZURELAB_OWNER }}
