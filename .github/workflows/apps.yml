@@ -30,11 +30,11 @@ permissions:
   contents: read
 
 env:
-  RG_NAME: rg-azurelab-ndvd-dev-cin
-  API_APP: app-azurelab-api-dev-cin-5kaayi
-  WORKER_APP: app-azurelab-worker-dev-cin-5kaayi
-  FUNC_APP: func-azurelab-dev-cin-5kaayi
-  SQL_SERVER: sql-azurelab-dev-cin-5kaayi
+  RG_NAME: rg-azurelab-ndvd-dev2-cin
+  API_APP: app-azurelab-api-dev-cin-jyqvnq
+  WORKER_APP: app-azurelab-worker-dev-cin-jyqvnq
+  FUNC_APP: func-azurelab-dev-cin-jyqvnq
+  SQL_SERVER: sql-azurelab-dev-cin-jyqvnq
   SQL_DB: sqldb-azurelab-dev-cin
 
 jobs:
