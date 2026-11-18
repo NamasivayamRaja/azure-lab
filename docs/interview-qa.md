@@ -105,3 +105,29 @@
 
 7. **How do you control observability cost without flying blind?**
    Set a Log Analytics daily ingestion cap (`dailyQuotaGb: 1`) and 30-day retention in Bicep, sample high-volume `Trace`/`Dependency` telemetry while keeping 100% of `Request`s/errors, avoid logging payloads/PII/blob names, and rely on low-cost platform metrics (`DeadletteredMessages`, `Http5xx`) for always-on alerting.
+
+
+---
+
+## Day 6 — Load Testing, Autoscale, Failures & Capacity Planning
+
+1. **Scale out (horizontal) vs. scale up (vertical) — when do you choose each?**
+   Scale **up** (e.g., `P0v3` -> `P1v3` or `GP_S_Gen5_1` -> `GP_Gen5_2`) when a single instance hits CPU/memory saturation (`98%` SQL CPU, `69%` plan RAM), connection-pool ceilings, or single-threaded bottlenecks. Scale **out** (adding instances) for high availability across fault domains and stateless horizontal throughput once per-instance bottlenecks are resolved.
+
+2. **What causes autoscale lag and flapping, and how do you design against them?**
+   Reactive autoscale has two lags: metric aggregation/evaluation (`PT5M` window -> `3m 16s` in our test) plus VM/container cold-boot and warm-up (`3m 45s` -> **`7m 03s` total**). Prevent **flapping** with asymmetric rules: fast scale-out (`PT5M`, OR logic) and slow scale-in (`PT10M` window + `PT10M` cooldown, AND logic, wide hysteresis gap like `>60%` out vs `<25%` in).
+
+3. **What happens to in-flight Service Bus messages during scale-in or instance termination?**
+   App Service Linux sends `SIGTERM` and waits **30 seconds** (`WEBSITES_SHUTDOWN_TIMEOUT`) before `SIGKILL`. If the handler finishes and commits SQL before `SIGKILL` (and completes with `CancellationToken.None`), the message is settled; if killed mid-flight or cancelled without `AbandonMessageAsync`, the broker holds the lock until `lockDuration` (`PT30S`) expires and redelivers (`DeliveryCount + 1`), where our atomic SQL transaction + `ProcessedMessages` inbox guarantees zero duplicates.
+
+4. **What is plan-level autoscale coupling, and when do you split plans?**
+   In App Service, autoscale targets the **App Service Plan (`serverfarms`)**, not individual apps. Because API, Worker, and Functions shared `asp-azurelab-dev-cin`, scaling `1 -> 2` doubled all 3 apps and their SQL connection pools simultaneously. In production, split `asp-api` (scales on HTTP CPU/latency, uses slots) from `asp-worker` (scales on Service Bus queue depth, no slots) to isolate noisy neighbors.
+
+5. **Why do laptop-based load tests mislead, and how do you still get trustworthy numbers?**
+   A developer laptop adds last-mile ISP RTT (`~22–30 ms`), TLS handshake overhead, Wi-Fi jitter, and NAT port limits—and by Little's Law ($L = \lambda W$), higher RTT artificially caps closed-loop throughput per VU. To stay honest at \$0, use keep-alive VUs on the laptop for moderate RPS and read **server-side `AppRequests.DurationMs`** in Application Insights as truth; move the generator into the same Azure region (ACI or Azure Load Testing) for peak RPS or sub-50ms SLA tests.
+
+6. **What are the real trade-offs of Azure SQL Serverless?**
+   Serverless bills per vCore-second (`0.5` min) and drops compute cost to \$0 when auto-paused (`15m` min delay), **but** any background poller (`OutboxDispatcher` every `2s`) keeps it awake 24/7 (burning `100,000` monthly free vCore-seconds in `2.31 days`). When it *does* pause, the first connection fails with **`Error 40613`** during a ~30–60s cold resume, requiring `Connection Timeout=60` and EF `EnableRetryOnFailure`.
+
+7. **How do you capacity-plan from measured load data?**
+   Measure saturation on 1 instance (`36.6 rps`, `98%` SQL CPU, `MaxConcurrentCalls=1` queue backlog), identify the first bottleneck (free config fixes like `MaxConcurrentCalls=8` + `BatchSize=50` before buying bigger SKUs), verify downstream ceilings (SQL max sessions/CPU, Service Bus Standard `1,000 credits/s`), compute marginal cost per 1,000 operations, and size headroom for peak × safety factor plus autoscale warm-up lag.

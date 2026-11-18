@@ -46,7 +46,13 @@ export default function () {
   const res = http.post(
     `${base}/offers/${OFFER_ID}/redeem`,
     JSON.stringify({ userId }),
-    { headers: { 'Content-Type': 'application/json', 'X-Correlation-ID': `k6-${__VU}-${__ITER}-${Date.now()}` } },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': `k6-${__VU}-${__ITER}-${Date.now()}`,
+        ...(__ENV.AUTH_TOKEN ? { Authorization: `Bearer ${__ENV.AUTH_TOKEN}` } : {}),
+      },
+    },
   );
   submitMs.add(res.timings.duration);
   if (check(res, { 'status is 202': (r) => r.status === 202 })) accepted.add(1);
