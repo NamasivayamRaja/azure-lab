@@ -22,7 +22,13 @@ export default function () {
   const res = http.post(
     `${BASE}/offers/${OFFER_ID}/redeem`,
     JSON.stringify({ userId: '12345' }),
-    { headers: { 'Content-Type': 'application/json', 'X-Correlation-ID': `oversell-${__VU}-${__ITER}-${Date.now()}` } },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Correlation-ID': `oversell-${__VU}-${__ITER}-${Date.now()}`,
+        ...(__ENV.AUTH_TOKEN ? { Authorization: `Bearer ${__ENV.AUTH_TOKEN}` } : {}),
+      },
+    },
   );
   check(res, { 'status is 202': (r) => r.status === 202 });
 }

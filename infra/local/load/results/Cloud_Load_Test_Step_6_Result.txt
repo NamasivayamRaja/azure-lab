@@ -1,0 +1,346 @@
+#1: 
+
+Timestamp             Name                Average             Maximum
+--------------------  ------------------  ------------------  ---------
+2026-11-18T05:16:00Z  CPU percentage      0.75                1.0
+2026-11-18T05:17:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:18:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:19:00Z  CPU percentage      0.25                1.0
+2026-11-18T05:20:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:21:00Z  CPU percentage      0.25                1.0
+2026-11-18T05:22:00Z  CPU percentage      0.25                1.0
+2026-11-18T05:23:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:24:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:25:00Z  CPU percentage      0.5                 1.0
+2026-11-18T05:26:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:27:00Z  CPU percentage      0.75                1.0
+2026-11-18T05:28:00Z  CPU percentage      0.25                1.0
+2026-11-18T05:29:00Z  CPU percentage      0.5                 1.0
+2026-11-18T05:30:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:31:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:32:00Z  CPU percentage      0.5                 2.0
+2026-11-18T05:33:00Z  CPU percentage      54.25               78.0
+2026-11-18T05:34:00Z  CPU percentage      86.0                88.0
+2026-11-18T05:35:00Z  CPU percentage      92.0                94.0
+2026-11-18T05:36:00Z  CPU percentage      75.0                98.0
+2026-11-18T05:37:00Z  CPU percentage      22.5                34.0
+2026-11-18T05:38:00Z  CPU percentage      11.5                17.0
+2026-11-18T05:39:00Z  CPU percentage      9.75                15.0
+2026-11-18T05:40:00Z  CPU percentage      14.25               17.0
+2026-11-18T05:41:00Z  CPU percentage      13.666666666666666  15.0
+2026-11-18T05:42:00Z  CPU percentage      14.75               17.0
+2026-11-18T05:43:00Z  CPU percentage      4.75                9.0
+2026-11-18T05:44:00Z  CPU percentage      3.75                4.0
+2026-11-18T05:45:00Z  CPU percentage      3.75                4.0
+2026-11-18T05:46:00Z  CPU percentage      4.0                 4.0
+2026-11-18T05:47:00Z  CPU percentage      4.25                5.0
+2026-11-18T05:48:00Z  CPU percentage      1.25                4.0
+2026-11-18T05:49:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:50:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:51:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:52:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:53:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:54:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:55:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:56:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:57:00Z  CPU percentage      1.25                5.0
+2026-11-18T05:58:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:59:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:00:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:01:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:02:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:03:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:04:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:05:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:06:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:07:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:08:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:09:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:10:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:11:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:12:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:13:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:14:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:15:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:16:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:17:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:18:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:19:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:20:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:21:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:22:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:23:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:24:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:25:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:26:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:27:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:28:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:29:00Z  CPU percentage      0.0                 0.0
+2026-11-18T06:30:00Z  CPU percentage      0.0                 0.0
+2026-11-18T05:16:00Z  App CPU percentage  1.0                 1.0
+2026-11-18T05:17:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:18:00Z  App CPU percentage  0.25                1.0
+2026-11-18T05:19:00Z  App CPU percentage  0.75                1.0
+2026-11-18T05:20:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:21:00Z  App CPU percentage  1.0                 2.0
+2026-11-18T05:22:00Z  App CPU percentage  0.75                1.0
+2026-11-18T05:23:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:24:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:25:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:26:00Z  App CPU percentage  1.0                 2.0
+2026-11-18T05:27:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:28:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:29:00Z  App CPU percentage  0.25                1.0
+2026-11-18T05:30:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:31:00Z  App CPU percentage  0.75                2.0
+2026-11-18T05:32:00Z  App CPU percentage  0.25                1.0
+2026-11-18T05:33:00Z  App CPU percentage  33.5                49.0
+2026-11-18T05:34:00Z  App CPU percentage  54.5                57.0
+2026-11-18T05:35:00Z  App CPU percentage  54.25               56.0
+2026-11-18T05:36:00Z  App CPU percentage  54.75               68.0
+2026-11-18T05:37:00Z  App CPU percentage  23.0                39.0
+2026-11-18T05:38:00Z  App CPU percentage  12.25               19.0
+2026-11-18T05:39:00Z  App CPU percentage  10.5                15.0
+2026-11-18T05:40:00Z  App CPU percentage  14.5                17.0
+2026-11-18T05:41:00Z  App CPU percentage  15.25               23.0
+2026-11-18T05:42:00Z  App CPU percentage  13.5                17.0
+2026-11-18T05:43:00Z  App CPU percentage  2.5                 3.0
+2026-11-18T05:44:00Z  App CPU percentage  2.0                 2.0
+2026-11-18T05:45:00Z  App CPU percentage  2.75                3.0
+2026-11-18T05:46:00Z  App CPU percentage  3.75                9.0
+2026-11-18T05:47:00Z  App CPU percentage  2.75                4.0
+2026-11-18T05:48:00Z  App CPU percentage  1.25                3.0
+2026-11-18T05:49:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T05:50:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:51:00Z  App CPU percentage  0.75                2.0
+2026-11-18T05:52:00Z  App CPU percentage  0.25                1.0
+2026-11-18T05:53:00Z  App CPU percentage  0.25                1.0
+2026-11-18T05:54:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:55:00Z  App CPU percentage  0.25                1.0
+2026-11-18T05:56:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T05:57:00Z  App CPU percentage  1.0                 4.0
+2026-11-18T05:58:00Z  App CPU percentage  0.25                1.0
+2026-11-18T05:59:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:00:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:01:00Z  App CPU percentage  0.75                2.0
+2026-11-18T06:02:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:03:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:04:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:05:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:06:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:07:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:08:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:09:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:10:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:11:00Z  App CPU percentage  0.75                1.0
+2026-11-18T06:12:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:13:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:14:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:15:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:16:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:17:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T06:18:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:19:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:20:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:21:00Z  App CPU percentage  0.5                 1.0
+2026-11-18T06:22:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:23:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:24:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:25:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:26:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:27:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:28:00Z  App CPU percentage  0.25                1.0
+2026-11-18T06:29:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T06:30:00Z  App CPU percentage  0.0                 0.0
+2026-11-18T05:16:00Z  Sessions count      2.5                 3.0
+2026-11-18T05:17:00Z  Sessions count      2.0                 2.0
+2026-11-18T05:18:00Z  Sessions count      2.0                 2.0
+2026-11-18T05:19:00Z  Sessions count      2.0                 2.0
+2026-11-18T05:20:00Z  Sessions count      2.0                 2.0
+2026-11-18T05:21:00Z  Sessions count      2.0                 2.0
+2026-11-18T05:22:00Z  Sessions count      1.5                 2.0
+2026-11-18T05:23:00Z  Sessions count      1.0                 1.0
+2026-11-18T05:24:00Z  Sessions count      1.0                 1.0
+2026-11-18T05:25:00Z  Sessions count      1.0                 1.0
+2026-11-18T05:26:00Z  Sessions count      1.0                 1.0
+2026-11-18T05:27:00Z  Sessions count      1.0                 1.0
+2026-11-18T05:28:00Z  Sessions count      1.0                 1.0
+2026-11-18T05:29:00Z  Sessions count      1.0                 1.0
+2026-11-18T05:30:00Z  Sessions count      1.0                 1.0
+2026-11-18T05:31:00Z  Sessions count      2.0                 2.0
+2026-11-18T05:32:00Z  Sessions count      3.5                 8.0
+2026-11-18T05:33:00Z  Sessions count      20.25               28.0
+2026-11-18T05:34:00Z  Sessions count      44.75               54.0
+2026-11-18T05:35:00Z  Sessions count      54.0                54.0
+2026-11-18T05:36:00Z  Sessions count      64.25               76.0
+2026-11-18T05:37:00Z  Sessions count      76.0                76.0
+2026-11-18T05:38:00Z  Sessions count      76.0                76.0
+2026-11-18T05:39:00Z  Sessions count      77.5                79.0
+2026-11-18T05:40:00Z  Sessions count      79.0                79.0
+2026-11-18T05:41:00Z  Sessions count      62.333333333333336  79.0
+2026-11-18T05:42:00Z  Sessions count      29.0                29.0
+2026-11-18T05:43:00Z  Sessions count      12.5                29.0
+2026-11-18T05:44:00Z  Sessions count      7.0                 7.0
+2026-11-18T05:45:00Z  Sessions count      7.0                 7.0
+2026-11-18T05:46:00Z  Sessions count      6.25                7.0
+2026-11-18T05:47:00Z  Sessions count      6.0                 6.0
+2026-11-18T05:48:00Z  Sessions count      4.0                 4.0
+2026-11-18T05:49:00Z  Sessions count      3.5                 4.0
+2026-11-18T05:50:00Z  Sessions count      3.0                 3.0
+2026-11-18T05:51:00Z  Sessions count      3.0                 3.0
+2026-11-18T05:52:00Z  Sessions count      3.0                 3.0
+2026-11-18T05:53:00Z  Sessions count      3.0                 3.0
+2026-11-18T05:54:00Z  Sessions count      3.0                 3.0
+2026-11-18T05:55:00Z  Sessions count      3.0                 3.0
+2026-11-18T05:56:00Z  Sessions count      3.0                 3.0
+2026-11-18T05:57:00Z  Sessions count      4.75                6.0
+2026-11-18T05:58:00Z  Sessions count      6.0                 6.0
+2026-11-18T05:59:00Z  Sessions count      6.0                 6.0
+2026-11-18T06:00:00Z  Sessions count      6.0                 6.0
+2026-11-18T06:01:00Z  Sessions count      5.0                 5.0
+2026-11-18T06:02:00Z  Sessions count      4.0                 4.0
+2026-11-18T06:03:00Z  Sessions count      3.75                4.0
+2026-11-18T06:04:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:05:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:06:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:07:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:08:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:09:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:10:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:11:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:12:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:13:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:14:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:15:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:16:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:17:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:18:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:19:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:20:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:21:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:22:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:23:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:24:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:25:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:26:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:27:00Z  Sessions count      3.0                 3.0
+2026-11-18T06:28:00Z  Sessions count      2.0                 2.0
+2026-11-18T06:29:00Z  Sessions count      1.0                 1.0
+2026-11-18T06:30:00Z  Sessions count      1.0                 1.0
+
+AppRoleName                         TableName      Count    Failed    Max        P50                 P95                 P99
+----------------------------------  -------------  -------  --------  ---------  ------------------  ------------------  -----------
+app-azurelab-worker-dev-cin-5kaayi  PrimaryResult  11904    6         8569.5706  1.8111717530591311  24.157561270378324  90.52816875
+app-azurelab-api-dev-cin-5kaayi     PrimaryResult  3194     0         1657.8331  20.213667190537283  511.38439851851854  901.2129
+
+
+PS D:\2026\AzureLabs> az monitor activity-log alert list -g $rg -o table
+No alerts
+
+az monitor log-analytics query -w $wsId --analytics-query "AppTraces | where TimeGenerated > ago(45m) and Message has 'Reconciled stale RedeemTransaction' | summarize reconciled_count=count(), first=min(TimeGenerated), last=max(TimeGenerated)" -o table
+
+It loading more than minute and loading more data not an aggregate results - SO I Stopped the execution:
+  {
+    "AppRoleInstance": "4c8fc572c188fa54ba3c6edbdfea735f76ededa13167c073c5888a8bc6b7371f",
+    "AppRoleName": "func-azurelab-dev-cin-5kaayi",
+    "AppVersion": "",
+    "ClientBrowser": "",
+    "ClientCity": "",
+    "ClientCountryOrRegion": "",
+    "ClientIP": "::",
+    "ClientModel": "",
+    "ClientOS": "",
+    "ClientStateOrProvince": "",
+    "ClientType": "PC",
+    "IKey": "65b4c29a-8676-44b8-adfb-f8491bafc5bb",
+    "ItemCount": "1",
+    "Measurements": "None",
+    "Message": "Executing 'Functions.health' (Reason='This function was programmatically called via the host APIs.', Id=38f1b3d5-0ca6-4b79-ba9c-6a25cb05e0f8)",
+    "OperationId": "d1ad452837801a0f4ba3210cb52774ac",
+    "OperationName": "health",
+    "ParentId": "51c55d2ba242cf54",
+    "Properties": "{\"prop__invocationId\":\"38f1b3d5-0ca6-4b79-ba9c-6a25cb05e0f8\",\"InvocationId\":\"38f1b3d5-0ca6-4b79-ba9c-6a25cb05e0f8\",\"prop__functionName\":\"Functions.health\",\"ProcessId\":\"66\",\"HostInstanceId\":\"f712be95-869f-49c3-97d5-d53673bb7f4f\",\"prop__{OriginalFormat}\":\"Executing '{functionName}' (Reason='{reason}', Id={invocationId})\",\"LogLevel\":\"Information\",\"EventId\":\"1\",\"prop__reason\":\"This function was programmatically called via the host APIs.\",\"Category\":\"Function.health\",\"EventName\":\"FunctionStarted\",\"prop__MS_AzureFunctionsRequestID\":\"40ca178c-f6d3-4b56-8a48-a68ac4031d82\"}",
+    "ReferencedItemId": "",
+    "ReferencedType": "",
+    "ResourceGUID": "3d1077c5-f841-47e4-9ebe-d1c3c699202a",
+    "SDKVersion": "azurefunctions: 4.1055.300.8",
+    "SessionId": "",
+    "SeverityLevel": "1",
+    "SourceSystem": "Azure",
+    "SyntheticSource": "",
+    "TableName": "PrimaryResult",
+    "TenantId": "2a4063b4-f84b-4b32-bdb7-08f5f4e18920",
+    "TimeGenerated": "2026-11-17T14:17:43.9314017Z",
+    "Type": "AppTraces",
+    "UserAccountId": "",
+    "UserAuthenticatedId": "",
+    "UserId": "",
+    "_ResourceId": "/subscriptions/2f46476f-3e25-490f-ae7a-3b57d0600f4c/resourcegroups/rg-azurelab-ndvd-dev-cin/providers/microsoft.insights/components/appi-azurelab-dev-cin"
+  },
+
+
+
+   execution: local
+        script: infra\local\load\k6\redeem-ramp.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 40 max VUs, 35s max duration (incl. graceful stop):
+              * ramp: Up to 40 looping VUs for 25s over 3 stages (gracefulRampDown:10s, gracefulStop: 30s)
+
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    redeem_accepted_202
+    ✓ 'count>0' count=926
+
+    redeem_submit_ms
+    ✗ 'p(95)<500' p(95)=982.69ms
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 926     36.678361/s
+    checks_succeeded...: 100.00% 926 out of 926
+    checks_failed......: 0.00%   0 out of 926
+
+    ✓ status is 202
+
+    CUSTOM
+    redeem_accepted_202............: 926    36.678361/s
+    redeem_submit_ms...............: avg=406.17ms min=44.53ms  med=283.78ms max=1.23s p(90)=913.7ms p(95)=982.69ms
+
+    HTTP
+    http_req_duration..............: avg=406.17ms min=44.53ms  med=283.78ms max=1.23s p(90)=913.7ms p(95)=982.69ms
+      { expected_response:true }...: avg=406.17ms min=44.53ms  med=283.78ms max=1.23s p(90)=913.7ms p(95)=982.69ms
+    http_req_failed................: 0.00%  0 out of 926
+    http_reqs......................: 926    36.678361/s
+
+    EXECUTION
+    iteration_duration.............: avg=713.35ms min=347.56ms med=596.97ms max=1.54s p(90)=1.22s   p(95)=1.28s   
+    iterations.....................: 926    36.678361/s
+    vus............................: 1      min=1        max=40
+    vus_max........................: 40     min=40       max=40
+
+    NETWORK
+    data_received..................: 701 kB 28 kB/s
+    data_sent......................: 262 kB 10 kB/s
+
+
+
+
+running (25.2s), 00/40 VUs, 926 complete and 0 interrupted iterations
+ramp ✓ [======================================] 00/40 VUs  25s
+
+Active messages right before Worker restart: 476
+
+{
+  "activeMessageCount": 0,
+  "deadLetterMessageCount": 1,
+  "scheduledMessageCount": 0,
+  "transferDeadLetterMessageCount": 0,
+  "transferMessageCount": 0
+}
