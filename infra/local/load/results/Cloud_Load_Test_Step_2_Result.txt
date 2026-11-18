@@ -1,0 +1,320 @@
+2A
+Healthy
+/health/ready -> HTTP 200 in 0.248100s
+Ramp started UTC: 2026-11-18T04:06:30Z
+
+2B
+        script: infra\local\load\k6\redeem-ramp.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 50 max VUs, 1m5s max duration (incl. graceful stop):
+              * ramp: Up to 50 looping VUs for 55s over 3 stages (gracefulRampDown: 10s, gracefulStop: 30s)
+
+
+
+  █ THRESHOLDS 
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    redeem_accepted_202
+    ✓ 'count>0' count=1220
+
+    redeem_submit_ms
+    ✓ 'p(95)<500' p(95)=93.43ms
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1220    21.840496/s
+    checks_succeeded...: 100.00% 1220 out of 1220
+    checks_failed......: 0.00%   0 out of 1220
+
+    ✓ status is 202
+
+    CUSTOM
+    redeem_accepted_202............: 1220   21.840496/s
+    redeem_submit_ms...............: avg=73.26ms min=32.36ms med=41.39ms max=2.81s p(90)=66.67ms p(95)=93.43ms
+
+    HTTP
+    http_req_duration..............: avg=73.26ms min=32.36ms med=41.39ms max=2.81s p(90)=66.67ms p(95)=93.43ms
+      { expected_response:true }...: avg=73.26ms min=32.36ms med=41.39ms max=2.81s p(90)=66.67ms p(95)=93.43ms
+    http_req_failed................: 0.00%  0 out of 1220
+    http_reqs......................: 1220   21.840496/s
+
+    EXECUTION
+    iteration_duration.............: avg=1.58s   min=1.53s   med=1.54s   max=4.46s p(90)=1.58s   p(95)=1.6s   
+    iterations.....................: 1220   21.840496/s
+    vus............................: 4      min=4         max=50
+    vus_max........................: 50     min=50        max=50
+
+    NETWORK
+    data_received..................: 906 kB 16 kB/s
+    data_sent......................: 335 kB 6.0 kB/s
+
+
+
+
+running (0m55.9s), 00/50 VUs, 1220 complete and 0 interrupted iterations
+ramp ✓ [======================================] 00/50 VUs  55s
+
+2C
+
+total_tx	not_final	outbox_unsent
+1220	0	0
+
+Status	cnt
+4	1220
+
+stuck_count
+0
+
+Destination	sent_rows	lag_p50_ms	lag_p95_ms	lag_max_ms
+offer-events	1220	1279	2171	2402
+redeem-requests	1220	1366	2264.05	2523
+
+tx_without_inbox	inbox_without_tx
+0	0
+
+2D
+
+     execution: local
+        script: infra\local\load\k6\oversell-race.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 50 max VUs, 1m0s max duration (incl. graceful stop):
+              * burst200: 200 iterations shared among 50 VUs (maxDuration: 30s, gracefulStop: 30s)
+
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 200     101.315819/s
+    checks_succeeded...: 100.00% 200 out of 200
+    checks_failed......: 0.00%   0 out of 200
+
+    ✓ status is 202
+
+    HTTP
+    http_req_duration..............: avg=423.65ms min=89.92ms med=323.13ms max=1.17s p(90)=740.71ms p(95)=836.51ms
+      { expected_response:true }...: avg=423.65ms min=89.92ms med=323.13ms max=1.17s p(90)=740.71ms p(95)=836.51ms
+    http_req_failed................: 0.00%  0 out of 200
+    http_reqs......................: 200    101.315819/s
+
+    EXECUTION
+    iteration_duration.............: avg=470.23ms min=93.01ms med=471.56ms max=1.35s p(90)=835.37ms p(95)=1.02s   
+    iterations.....................: 200    101.315819/s
+    vus............................: 50     min=50       max=50
+    vus_max........................: 50     min=50       max=50
+
+    NETWORK
+    data_received..................: 604 kB 306 kB/s
+    data_sent......................: 192 kB 97 kB/s
+
+
+
+
+running (0m02.0s), 00/50 VUs, 200 complete and 0 interrupted iterations
+burst200 ✓ [======================================] 50 VUs  02.0s/30s  200/200 shared iters
+
+OfferId	Capacity	Remaining	completed_since	rejected_since
+5B0B2D4E-7C1A-4F0E-9A55-0A1B2C3D4E5F	50	50	0	200
+
+2E
+Timestamp             Name               Average    Maximum
+--------------------  -----------------  ---------  ---------
+2026-11-18T03:53:00Z  CPU Percentage     15.0       15.0
+2026-11-18T03:54:00Z  CPU Percentage     4.0        4.0
+2026-11-18T03:55:00Z  CPU Percentage     8.0        8.0
+2026-11-18T03:56:00Z  CPU Percentage     6.0        6.0
+2026-11-18T03:57:00Z  CPU Percentage     6.0        6.0
+2026-11-18T03:58:00Z  CPU Percentage     13.0       13.0
+2026-11-18T03:59:00Z  CPU Percentage     6.0        6.0
+2026-11-18T04:00:00Z  CPU Percentage     7.0        7.0
+2026-11-18T04:01:00Z  CPU Percentage     8.0        8.0
+2026-11-18T04:02:00Z  CPU Percentage     5.0        5.0
+2026-11-18T04:03:00Z  CPU Percentage     14.0       14.0
+2026-11-18T04:04:00Z  CPU Percentage     6.0        6.0
+2026-11-18T04:05:00Z  CPU Percentage     55.0       55.0
+2026-11-18T04:06:00Z  CPU Percentage     21.0       21.0
+2026-11-18T04:07:00Z  CPU Percentage     9.0        9.0
+2026-11-18T04:08:00Z  CPU Percentage     41.0       41.0
+2026-11-18T04:09:00Z  CPU Percentage     43.0       43.0
+2026-11-18T04:10:00Z  CPU Percentage     30.0       30.0
+2026-11-18T04:11:00Z  CPU Percentage     29.0       29.0
+2026-11-18T04:12:00Z  CPU Percentage     17.0       17.0
+2026-11-18T03:53:00Z  Memory Percentage  58.0       58.0
+2026-11-18T03:54:00Z  Memory Percentage  58.0       58.0
+2026-11-18T03:55:00Z  Memory Percentage  58.0       58.0
+2026-11-18T03:56:00Z  Memory Percentage  58.0       58.0
+2026-11-18T03:57:00Z  Memory Percentage  58.0       58.0
+2026-11-18T03:58:00Z  Memory Percentage  59.0       59.0
+2026-11-18T03:59:00Z  Memory Percentage  59.0       59.0
+2026-11-18T04:00:00Z  Memory Percentage  58.0       58.0
+2026-11-18T04:01:00Z  Memory Percentage  58.0       58.0
+2026-11-18T04:02:00Z  Memory Percentage  59.0       59.0
+2026-11-18T04:03:00Z  Memory Percentage  58.0       58.0
+2026-11-18T04:04:00Z  Memory Percentage  58.0       58.0
+2026-11-18T04:05:00Z  Memory Percentage  62.0       62.0
+2026-11-18T04:06:00Z  Memory Percentage  62.0       62.0
+2026-11-18T04:07:00Z  Memory Percentage  62.0       62.0
+2026-11-18T04:08:00Z  Memory Percentage  65.0       65.0
+2026-11-18T04:09:00Z  Memory Percentage  69.0       69.0
+2026-11-18T04:10:00Z  Memory Percentage  67.0       67.0
+2026-11-18T04:11:00Z  Memory Percentage  67.0       67.0
+2026-11-18T04:12:00Z  Memory Percentage  69.0       69.0
+Timestamp             Name                Average    Maximum
+--------------------  ------------------  ---------  ---------
+2026-11-18T03:53:00Z  CPU percentage      0.0        0.0
+2026-11-18T03:54:00Z  CPU percentage      0.0        0.0
+2026-11-18T03:55:00Z  CPU percentage      0.0        0.0
+2026-11-18T03:56:00Z  CPU percentage      0.0        0.0
+2026-11-18T03:57:00Z  CPU percentage      0.0        0.0
+2026-11-18T03:58:00Z  CPU percentage      0.0        0.0
+2026-11-18T03:59:00Z  CPU percentage      0.0        0.0
+2026-11-18T04:00:00Z  CPU percentage      0.0        0.0
+2026-11-18T04:01:00Z  CPU percentage      0.0        0.0
+2026-11-18T04:02:00Z  CPU percentage      0.0        0.0
+2026-11-18T04:03:00Z  CPU percentage      0.0        0.0
+2026-11-18T04:04:00Z  CPU percentage      0.0        0.0
+2026-11-18T04:05:00Z  CPU percentage      0.0        0.0
+2026-11-18T04:06:00Z  CPU percentage      4.0        4.0
+2026-11-18T04:07:00Z  CPU percentage      0.0        0.0
+2026-11-18T04:08:00Z  CPU percentage      9.0        17.0
+2026-11-18T04:09:00Z  CPU percentage      8.25       16.0
+2026-11-18T04:10:00Z  CPU percentage      3.5        11.0
+2026-11-18T04:11:00Z  CPU percentage      0.25       1.0
+2026-11-18T04:12:00Z  CPU percentage      0.0        0.0
+2026-11-18T03:53:00Z  App CPU percentage
+2026-11-18T03:54:00Z  App CPU percentage
+2026-11-18T03:55:00Z  App CPU percentage
+2026-11-18T03:56:00Z  App CPU percentage
+2026-11-18T03:57:00Z  App CPU percentage
+2026-11-18T03:58:00Z  App CPU percentage
+2026-11-18T03:59:00Z  App CPU percentage
+2026-11-18T04:00:00Z  App CPU percentage
+2026-11-18T04:01:00Z  App CPU percentage
+2026-11-18T04:02:00Z  App CPU percentage
+2026-11-18T04:03:00Z  App CPU percentage
+2026-11-18T04:04:00Z  App CPU percentage
+2026-11-18T04:05:00Z  App CPU percentage
+2026-11-18T04:06:00Z  App CPU percentage  11.5       12.0
+2026-11-18T04:07:00Z  App CPU percentage  4.25       5.0
+2026-11-18T04:08:00Z  App CPU percentage  16.0       25.0
+2026-11-18T04:09:00Z  App CPU percentage  11.25      15.0
+2026-11-18T04:10:00Z  App CPU percentage  5.25       8.0
+2026-11-18T04:11:00Z  App CPU percentage  0.0        0.0
+2026-11-18T04:12:00Z  App CPU percentage  0.25       1.0
+2026-11-18T03:53:00Z  Sessions count      0.0        0.0
+2026-11-18T03:54:00Z  Sessions count      0.0        0.0
+2026-11-18T03:55:00Z  Sessions count      0.0        0.0
+2026-11-18T03:56:00Z  Sessions count      0.0        0.0
+2026-11-18T03:57:00Z  Sessions count      0.0        0.0
+2026-11-18T03:58:00Z  Sessions count      0.0        0.0
+2026-11-18T03:59:00Z  Sessions count      0.0        0.0
+2026-11-18T04:00:00Z  Sessions count      0.0        0.0
+2026-11-18T04:01:00Z  Sessions count      0.0        0.0
+2026-11-18T04:02:00Z  Sessions count      0.0        0.0
+2026-11-18T04:03:00Z  Sessions count      0.0        0.0
+2026-11-18T04:04:00Z  Sessions count      0.0        0.0
+2026-11-18T04:05:00Z  Sessions count      0.0        0.0
+2026-11-18T04:06:00Z  Sessions count      4.0        4.0
+2026-11-18T04:07:00Z  Sessions count      3.5        4.0
+2026-11-18T04:08:00Z  Sessions count      12.25      16.0
+2026-11-18T04:09:00Z  Sessions count      16.0       16.0
+2026-11-18T04:10:00Z  Sessions count      20.25      31.0
+2026-11-18T04:11:00Z  Sessions count      32.25      33.0
+2026-11-18T04:12:00Z  Sessions count      32.0       32.0
+Timestamp             Name                                               Maximum    Total
+--------------------  -------------------------------------------------  ---------  -------
+2026-11-18T03:53:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T03:54:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T03:55:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T03:56:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T03:57:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T03:58:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T03:59:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:00:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:01:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:02:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:03:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:04:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:05:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:06:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:07:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:08:00Z  Count of active messages in a Queue/Topic.         115.0      115.0
+2026-11-18T04:09:00Z  Count of active messages in a Queue/Topic.         259.0      259.0
+2026-11-18T04:10:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:11:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T04:12:00Z  Count of active messages in a Queue/Topic.         0.0        0.0
+2026-11-18T03:53:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T03:54:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T03:55:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T03:56:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T03:57:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T03:58:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T03:59:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:00:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:01:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:02:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:03:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:04:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:05:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:06:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:07:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:08:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:09:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:10:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:11:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T04:12:00Z  Count of dead-lettered messages in a Queue/Topic.  8.0        8.0
+2026-11-18T03:53:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T03:54:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T03:55:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T03:56:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T03:57:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T03:58:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T03:59:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:00:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:01:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:02:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:03:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:04:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:05:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:06:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:07:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:08:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:09:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:10:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:11:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T04:12:00Z  Throttled Requests.                                0.0        0.0
+2026-11-18T03:53:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T03:54:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T03:55:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T03:56:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T03:57:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T03:58:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T03:59:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:00:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:01:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:02:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:03:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:04:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:05:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:06:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:07:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:08:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:09:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:10:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:11:00Z  Server Errors.                                     0.0        0.0
+2026-11-18T04:12:00Z  Server Errors.                                     0.0        0.0
+{
+  "activeMessageCount": 0,
+  "deadLetterMessageCount": 1,
+  "scheduledMessageCount": 0,
+  "transferDeadLetterMessageCount": 0,
+  "transferMessageCount": 0
+}
+Name                                TableName      Count    Failed    Max        P50       P95       P99
+----------------------------------  -------------  -------  --------  ---------  --------  --------  ---------
+POST /offers/{offerId:guid}/redeem  PrimaryResult  330      0         2708.5098  18.96425  598.9662  2694.8292
+GET /                               PrimaryResult  5        5         0.1819     0.1559    0.1819    0.1819
