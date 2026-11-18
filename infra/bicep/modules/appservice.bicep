@@ -13,6 +13,9 @@ param tags object
 @description('Standard or higher is required for slots; set per environment in the .bicepparam.')
 param planSkuName string = 'S1'
 
+@description('Service Bus namespace resource ID used by plan autoscale ActiveMessages rules.')
+param serviceBusId string = ''
+
 @description('Value for ServiceBus__FullyQualifiedNamespace (output of the servicebus module).')
 param serviceBusFqdn string
 
@@ -96,6 +99,105 @@ resource appPlan 'Microsoft.Web/serverfarms@2024-11-01' = {
   }
   properties: {
     reserved: true // Linux
+  }
+}
+
+resource planAutoscale 'Microsoft.Insights/autoscalesettings@2022-10-01' = if (!empty(serviceBusId)) {
+  name: 'autoscale-${planName}'
+  location: location
+  tags: tags
+  properties: {
+    name: 'autoscale-${planName}'
+    enabled: true
+    targetResourceUri: appPlan.id
+    profiles: [
+      {
+        name: 'DefaultProfile'
+        capacity: {
+          minimum: '1'
+          maximum: '2'
+          default: '1'
+        }
+        rules: [
+          {
+            metricTrigger: {
+              metricName: 'CpuPercentage'
+              metricNamespace: 'Microsoft.Web/serverfarms'
+              metricResourceUri: appPlan.id
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT5M'
+              timeAggregation: 'Average'
+              operator: 'GreaterThan'
+              threshold: 60
+            }
+            scaleAction: {
+              direction: 'Increase'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT5M'
+            }
+          }
+          {
+            metricTrigger: {
+              metricName: 'ActiveMessages'
+              metricNamespace: 'Microsoft.ServiceBus/namespaces'
+              metricResourceUri: serviceBusId
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT5M'
+              timeAggregation: 'Average'
+              operator: 'GreaterThan'
+              threshold: 50
+            }
+            scaleAction: {
+              direction: 'Increase'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT5M'
+            }
+          }
+          {
+            metricTrigger: {
+              metricName: 'CpuPercentage'
+              metricNamespace: 'Microsoft.Web/serverfarms'
+              metricResourceUri: appPlan.id
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT10M'
+              timeAggregation: 'Average'
+              operator: 'LessThan'
+              threshold: 25
+            }
+            scaleAction: {
+              direction: 'Decrease'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT10M'
+            }
+          }
+          {
+            metricTrigger: {
+              metricName: 'ActiveMessages'
+              metricNamespace: 'Microsoft.ServiceBus/namespaces'
+              metricResourceUri: serviceBusId
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT10M'
+              timeAggregation: 'Average'
+              operator: 'LessThan'
+              threshold: 10
+            }
+            scaleAction: {
+              direction: 'Decrease'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT10M'
+            }
+          }
+        ]
+      }
+    ]
   }
 }
 

@@ -69,6 +69,7 @@ public sealed class RedeemHandler(
             }
 
             var now = DateTimeOffset.UtcNow;
+            var isEligibleUser = cmd.UserId == "12345" || Guid.TryParse(cmd.UserId, out _);
             bool isApproved;
 
             var hasInventoryRow = await db.OfferInventories.AsNoTracking()
@@ -76,7 +77,7 @@ public sealed class RedeemHandler(
 
             if (hasInventoryRow)
             {
-                if (cmd.UserId == "12345")
+                if (isEligibleUser)
                 {
                     // Atomic conditional UPDATE: SQL engine serializes row-level decrement with U->X lock,
                     // never oversells (Remaining > 0 guard), and never throws DbUpdateConcurrencyException.
@@ -96,7 +97,7 @@ public sealed class RedeemHandler(
             else
             {
                 // Fallback for unseeded offer IDs (e.g. Day 6 self-tests)
-                isApproved = cmd.UserId == "12345";
+                isApproved = isEligibleUser;
             }
 
             currentTx.Status = isApproved ? RedeemTransactionStatus.Completed : RedeemTransactionStatus.Rejected;
