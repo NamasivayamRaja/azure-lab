@@ -83,3 +83,24 @@
 - **`DeadletteredMessages` `BadRequest`**: Service Bus metric rejects `timeAggregation: 'Total'`; switched to `'Maximum'`.
 - **`scheduledQueryRules@2023-03-15-preview` `InvalidRequestContent`**: Renamed `minEvaluationPeriodsToAlert` -> `minFailingPeriodsToAlert`.
 - **Empty `CorrelationId`/`DeliveryCount` in `AppTraces.Properties`**: `OpenTelemetryLoggerOptions.IncludeScopes` defaults to `false`; set `IncludeScopes = true` in API & Worker.
+
+
+## Day 6 — Azure Load, Autoscale, Failures & Capacity (2026-11-18)
+
+### Decisions
+- **Laptop k6 + App Insights Server Telemetry**: Kept load generation on Chennai laptop (`~22.4 ms` RTT floor) with optional `AUTH_TOKEN` header support in `k6/*.js` and used `AppRequests.DurationMs` as server-side truth (`\$0` load-gen cost).
+- **Entra `oid` Eligibility in `RedeemHandler`**: Updated [RedeemHandler.cs](file:///d:/2026/AzureLabs/AzureLab.Worker/RedeemHandler.cs#L72) (`cmd.UserId == "12345" || Guid.TryParse(cmd.UserId, out _)`) so authenticated Entra `oid` calls in Azure exercise `OfferInventories` atomic decrements.
+- **Plan Autoscale (`min=1, max=2`)**: Added `autoscale-asp-azurelab-dev-cin` to [appservice.bicep](file:///d:/2026/AzureLabs/infra/bicep/modules/appservice.bicep#L103-L194) scaling on `CpuPercentage > 60%` OR `ActiveMessages > 50` (`PT5M`) and scaling in on `CpuPercentage < 25%` AND `ActiveMessages < 10` (`PT10M`).
+- **Graceful Shutdown & Concurrency Backlog**: Documented (without applying) `CancellationToken.None` on `CompleteMessageAsync`, `AbandonMessageAsync` on `OperationCanceledException`, `ShutdownTimeout = 25s`, and raising `MaxConcurrentCalls` (`1 -> 8`) + `Outbox__BatchSize` (`20 -> 50`) in `appservice.bicep`.
+
+### Key Commands Run
+- Latency baseline: `curl.exe -w` against `/health/live` (`p50 = 131.5 ms` cold-TLS loop, `~28 ms` TCP RTT).
+- k6 runs: `redeem-ramp.js` (`1x` parity: `1,220` tx @ `21.8 rps`; `1->2` spike: `9,187` tx @ `36.6 rps`), `oversell-race.js` (`200` tx @ `101.3 rps`).
+- Telemetry & invariants: `az monitor metrics list` (Plan, SQL, Service Bus), `az monitor log-analytics query` (`AppRequests`, `AppDependencies`, `AppTraces`), `az monitor activity-log list`, and SSMS invariant queries (`01`–`04`).
+- Failure & scale-in tests: forced `autoscale` scale-in (`2 -> 1`) + mid-batch `az webapp restart` with `476` active messages (`0` new DLQs, drained `< 60s`).
+
+### Issues & Fixes
+- **`401 Unauthorized` on first Azure k6 run**: `POST /offers/{id}/redeem` enforces `ApiAccess`; added optional `-e AUTH_TOKEN` to `k6/*.js` using `az account get-access-token --resource "api://$apiClientId"`.
+- **PS 7.0 `System.Data.SqlClient` TLS/Entra failure**: Switched SQL invariant/seed execution to SSMS + Entra MFA after creating a firewall rule on `rg-azurelab-ndvd-dev-cin`.
+- **100% `Rejected` on initial Azure parity run**: `POST /redeem` uses JWT `oid` (GUID) rather than `"12345"`; fixed `RedeemHandler.cs` and verified `5,000/5,000` Completed (`Remaining = 0`) on the `9,187`-tx spike.
+- **`2,084` `RedeemReconciler` timeouts during spike**: `MaxConcurrentCalls = 1` in `appservice.bicep` pushed `redeem-requests` outbox lag `p95` to `98.1 s` (> `60s` reconciler SLA); reconciler + idempotent consumer absorbed all `141` duplicate deliveries with `0` stuck rows.
