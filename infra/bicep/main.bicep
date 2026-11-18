@@ -171,6 +171,7 @@ module appService 'modules/appservice.bicep' = {
     location: location
     tags: tags
     planSkuName: appServicePlanSku
+    serviceBusId: serviceBus.outputs.id
     serviceBusFqdn: serviceBus.outputs.fullyQualifiedNamespace
     blobServiceUri: storage.outputs.blobServiceUri
     apiBlobContainerName: apiBlobContainerName
