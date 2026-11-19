@@ -131,3 +131,21 @@
 
 7. **How do you capacity-plan from measured load data?**
    Measure saturation on 1 instance (`36.6 rps`, `98%` SQL CPU, `MaxConcurrentCalls=1` queue backlog), identify the first bottleneck (free config fixes like `MaxConcurrentCalls=8` + `BatchSize=50` before buying bigger SKUs), verify downstream ceilings (SQL max sessions/CPU, Service Bus Standard `1,000 credits/s`), compute marginal cost per 1,000 operations, and size headroom for peak × safety factor plus autoscale warm-up lag.
+
+
+---
+
+## Day 7 — Consolidation & Timed Mock Interview (Practice Status: Pending)
+
+Use these 10 questions (drawn from Week 1) for a timed self-drill—aim for 2–3 minutes per answer with exact resource names, roles, failure modes, and measured numbers:
+
+1. **[Whiteboard — File Upload]:** Walk through `event-docs` vs `bulk-player-enrollment` uploads: User-Delegation SAS without shared keys, quarantine copy/delete via Functions `BlobTrigger`, and exact RBAC roles/scopes.
+2. **[Whiteboard — DLQ Spike in Production]:** `redeem-requests/$DeadLetterQueue` jumps to 450 messages at 2:00 AM. How do you triage poison vs transient outage, safely replay via `DlqTool`, and guarantee zero oversell or stuck rows?
+3. **[Whiteboard — Zero-Downtime Deployment]:** Adding a non-nullable column to `RedeemTransactions` across API, Worker, and Functions: why Worker is slotless, how `Functions/staging` avoids trigger contention, and Expand/Contract `efbundle` ordering.
+4. **RBAC Caching & Revocation:** Why did User-Delegation SAS generation survive role deletion until app restart, and how does Storage/Service Bus RBAC propagation differ from SQL `EXTERNAL USER` removal?
+5. **In-Code JWT vs Easy Auth & Entra v2:** Why choose `Microsoft.Identity.Web` over Easy Auth, why omit `AzureAd:Audience` for v2 tokens, and how do `oid` + `EventEnrollments` eliminate BOLA/IDOR?
+6. **Outbox Trace Propagation:** How does W3C `traceparent` survive the SQL Outbox boundary into Service Bus (`Diagnostic-Id`) without a schema change?
+7. **Silent-Death Alerting:** Why did we choose a `scheduledQueryRules` KQL log alert over a Worker-emitted custom metric for outbox lag?
+8. **Autoscale Coupling & Lag:** Why did `1 -> 2` scale-out take `7m 03s`, what happens to SQL connections when API/Worker/Functions share `asp-azurelab-dev-cin`, and what free config fix comes before buying bigger SKUs?
+9. **SQL Serverless Trade-off:** Why did the `2s` Worker outbox poller burn the monthly free vCore-seconds in `2.31 days`, and what happens on cold resume (`Error 40613`)?
+10. **Rebuild Gaps:** What 8 state items did our Bicep + pipeline rebuild test expose (e.g., `sqlAllowedIps`, SQL `EXTERNAL USER`s, CI UAMI placement in `rg-azurelab-ndvd-shared-cin`, seed data)?
