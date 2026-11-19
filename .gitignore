@@ -17,3 +17,6 @@ secrets.json
 *.publishsettings
 __blobstorage__/
 __azurite_db_*
+
+# Personal interview prep & resume docs
+docs/interview-prep/

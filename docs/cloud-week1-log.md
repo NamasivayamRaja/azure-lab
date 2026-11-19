@@ -104,3 +104,22 @@
 - **PS 7.0 `System.Data.SqlClient` TLS/Entra failure**: Switched SQL invariant/seed execution to SSMS + Entra MFA after creating a firewall rule on `rg-azurelab-ndvd-dev-cin`.
 - **100% `Rejected` on initial Azure parity run**: `POST /redeem` uses JWT `oid` (GUID) rather than `"12345"`; fixed `RedeemHandler.cs` and verified `5,000/5,000` Completed (`Remaining = 0`) on the `9,187`-tx spike.
 - **`2,084` `RedeemReconciler` timeouts during spike**: `MaxConcurrentCalls = 1` in `appservice.bicep` pushed `redeem-requests` outbox lag `p95` to `98.1 s` (> `60s` reconciler SLA); reconciler + idempotent consumer absorbed all `141` duplicate deliveries with `0` stuck rows.
+
+
+## Day 7 — Consolidate, Prove Rebuild, ADRs & Teardown (2026-11-18 to 2026-11-19)
+
+### Decisions
+- **Middle-Path Rebuild & Teardown:** Rebuilt into `rg-azurelab-ndvd-dev2-cin` (`centralindia`, suffix `jyqvnq`), proved E2E health/drift/redeem before deleting `rg-azurelab-ndvd-dev-cin` (`3m 08s`), and kept global Entra registration `api-azurelab-dev`.
+- **Decoupled CI Identity:** Recreated `id-azurelab-github-dev-cin` (`clientId: 5e8c36f9-2978-4875-bdca-2ea2f316e0b2`, `principalId: 7bbea270-ae3b-4672-8f32-844495631a95`) inside long-lived `rg-azurelab-ndvd-shared-cin` so workload teardowns no longer destroy CI/CD access.
+- **Documentation & ADRs:** Created root `README.md` (with Mermaid Azure deployment diagram) and 5 one-page ADRs in `docs/adr/` (`001`–`005`).
+- **Mock Interview:** Marked **Pending** for later self-practice; 10 questions appended to `docs/interview-qa.md`.
+
+### Key Commands Run
+- Rebuild Pass 1 & 2: `az deployment group create -g rg-azurelab-ndvd-dev2-cin ...` (`3m 20s` + `2m 17s` ARM deploy) and `az webapp show --query possibleOutboundIpAddresses` (43 IPs).
+- Shared identity & SQL grants: `az identity create`, `az identity federated-credential create` (3 subjects), `CREATE USER ... WITH OBJECT_ID = '...'` in SSMS.
+- Pipeline proof: PR `rebuild/dev2-rg` (`build-and-whatif` 49s, `apps` build 1m 32s) -> merge -> `apps.yml` (`efbundle` + slot swaps) succeeded.
+- E2E & Teardown verification: `POST /offers/.../redeem` -> `202 Accepted`, `Status = 2` (`Remaining: 50 -> 49`, `DLQ = 0`); `az group delete -n rg-azurelab-ndvd-dev-cin`; verified `0` public IPs, `0` soft-deleted vaults/accounts, `0` orphaned RBAC assignments, and subscription budget `budget-azurelab-week1` intact.
+
+### Issues & Fixes
+- **8 Rebuild Gaps Identified:** Two-pass `sqlAllowedIps`, SQL `EXTERNAL USER` grants, code/migration separation, temporary SSMS firewall rule, CI UAMI lifecycle coupling, hardcoded RG/suffix in workflows, seed data (`OfferInventories`), and portal-created `AlertBudget`.
+- **Stopped Staging Slot `403`:** Confirmed `app-azurelab-api-dev-cin-jyqvnq/staging` returns `403` because it is intentionally stopped post-swap, not due to missing SQL permissions.
