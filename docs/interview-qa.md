@@ -149,3 +149,29 @@ Use these 10 questions (drawn from Week 1) for a timed self-drill—aim for 2–
 8. **Autoscale Coupling & Lag:** Why did `1 -> 2` scale-out take `7m 03s`, what happens to SQL connections when API/Worker/Functions share `asp-azurelab-dev-cin`, and what free config fix comes before buying bigger SKUs?
 9. **SQL Serverless Trade-off:** Why did the `2s` Worker outbox poller burn the monthly free vCore-seconds in `2.31 days`, and what happens on cold resume (`Error 40613`)?
 10. **Rebuild Gaps:** What 8 state items did our Bicep + pipeline rebuild test expose (e.g., `sqlAllowedIps`, SQL `EXTERNAL USER`s, CI UAMI placement in `rg-azurelab-ndvd-shared-cin`, seed data)?
+
+
+---
+
+## Cloud Week 2 — Day 0: AI Region, Quotas, Deployment Types & Pricing Gate
+
+### Q1. What is the difference between `Standard`, `DataZoneStandard`, `GlobalStandard`, and `GlobalProvisionedManaged` in Azure OpenAI?
+- **`Standard`:** Pay-per-token; inference stays strictly in the resource's region; lowest default TPM quota.
+- **`DataZoneStandard`:** Pay-per-token; inference stays within Microsoft's geography boundary (e.g., US, EU, APAC); higher quota than `Standard`.
+- **`GlobalStandard`:** Pay-per-token; inference routes globally for best availability and highest default TPM quota, while data at rest stays in the resource's region.
+- **`GlobalProvisionedManaged` (PTU):** Committed hourly GPU capacity for predictable high-throughput production workloads (thousands/month; never for small dev labs).
+
+### Q2. Why did we place Azure OpenAI in `southindia` while keeping App Service, SQL, and AI Search in `centralindia`?
+`centralindia` had `0` pay-as-you-go OpenAI TPM quota (only `GlobalProvisionedManaged` PTUs and no embeddings), whereas `southindia` offered 500K TPM for `gpt-5-mini` (`GlobalStandard`) and 1M TPM for `text-embedding-3-small`. Keeping OpenAI in `southindia` preserves India data-at-rest and low same-country latency (~15–25 ms) compared to `eastus2` (~200–250 ms).
+
+### Q3. Can a Private Endpoint in a `centralindia` VNet connect privately to an Azure OpenAI account in `southindia`?
+Yes. An Azure Private Endpoint must be deployed in the **same region as the VNet**, not the same region as the PaaS resource. Traffic resolves via `privatelink.openai.azure.com` to the private IP in `centralindia` and traverses the Microsoft backbone to `southindia` with zero public internet exposure.
+
+### Q4. Why is Azure AI Search Free tier unusable for an enterprise RAG architecture?
+The Free tier lacks **Semantic Ranker**, **Managed Identity (RBAC) authentication**, and **Private Endpoints**. Basic tier (~\$73.73/mo, \$0.101/hr per SU) is the minimum viable SKU for identity-only, private, hybrid+semantic RAG.
+
+### Q5. Why use `S0` (Standard) instead of `F0` (Free) for Content Safety and Document Intelligence when moving toward production?
+`F0` does not support **Private Endpoints** and imposes strict functional caps (for example, Document Intelligence `F0` only analyzes the first 2 pages of a document). `S0` is pay-per-call (\$0 idle) and unlocks Private Link and full multi-page processing.
+
+### Q6. Why do we drop Service Bus Private Endpoints in dev/sandbox labs, and what is the trigger to enable them in production?
+Service Bus Private Endpoints require the **Premium** tier (~\$0.928/MU/hr ≈ **\$677/mo**), whereas Standard is ~\$10/mo. In non-regulated dev/sandbox environments, you enforce Entra-only auth (`disableLocalAuth=true`) on Standard; in regulated production requiring strict network isolation or predictable dedicated throughput, you upgrade to Premium and attach a Private Endpoint.
