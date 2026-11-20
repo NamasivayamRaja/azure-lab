@@ -19,6 +19,11 @@ param openAiAccountName string = ''
 @description('Optional Entra User object ID granted Cognitive Services OpenAI User for local dev testing (no keys).')
 param openAiDevUserObjectId string = ''
 
+param deploySearch bool = false
+param searchServiceName string = ''
+@description('Optional Entra User object ID granted Search Service Contributor + Search Index Data Contributor for deploy-time index schema & re-index CLI.')
+param searchDevUserObjectId string = ''
+
 // Built-in role definition IDs. Cannot be validated offline: confirm in cloud week 1
 // with: az role definition list --name "<role name>"
 var roleIds = {
@@ -28,6 +33,9 @@ var roleIds = {
   blobDelegator: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'db58b8e5-c6ad-4a2a-8342-4190687cbf4a')
   queueDataContributor: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
   openAiUser: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
+  searchIndexDataContributor: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')
+  searchIndexDataReader: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '1407120a-92aa-4202-b7e9-c0e197c71c8f')
+  searchServiceContributor: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')
 }
 
 var apiPrincipalIds = grantStagingSlotRoles ? [apiPrincipalId, apiStagingPrincipalId] : [apiPrincipalId]
@@ -277,6 +285,56 @@ resource devUserOpenAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' 
   properties: {
     roleDefinitionId: roleIds.openAiUser
     principalId: openAiDevUserObjectId
+    principalType: 'User'
+  }
+}
+
+// ---------- Azure AI Search (least-privilege data-plane for runtime; control-plane only for deploy-time tool) ----------
+resource searchService 'Microsoft.Search/searchServices@2025-05-01' existing = {
+  name: deploySearch ? searchServiceName : 'placeholder-search'
+}
+
+// API queries the index read-only at /ask time (never mutates documents or index schema).
+resource apiSearchIndexReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for pid in apiPrincipalIds: if (deploySearch) {
+    name: guid(searchService.id, pid, roleIds.searchIndexDataReader)
+    scope: searchService
+    properties: {
+      roleDefinitionId: roleIds.searchIndexDataReader
+      principalId: pid
+      principalType: 'ServicePrincipal'
+    }
+  }
+]
+
+// Functions upserts and deletes chunks during document ingestion (no index schema mutation).
+resource functionSearchIndexContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch) {
+  name: guid(searchService.id, functionPrincipalId, roleIds.searchIndexDataContributor)
+  scope: searchService
+  properties: {
+    roleDefinitionId: roleIds.searchIndexDataContributor
+    principalId: functionPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Dev user runs the deploy-time index schema + re-index CLI locally (in CI, assign to the deploy UAMI).
+resource devUserSearchServiceContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch && !empty(searchDevUserObjectId)) {
+  name: guid(searchService.id, searchDevUserObjectId, roleIds.searchServiceContributor)
+  scope: searchService
+  properties: {
+    roleDefinitionId: roleIds.searchServiceContributor
+    principalId: searchDevUserObjectId
+    principalType: 'User'
+  }
+}
+
+resource devUserSearchIndexContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deploySearch && !empty(searchDevUserObjectId)) {
+  name: guid(searchService.id, searchDevUserObjectId, roleIds.searchIndexDataContributor)
+  scope: searchService
+  properties: {
+    roleDefinitionId: roleIds.searchIndexDataContributor
+    principalId: searchDevUserObjectId
     principalType: 'User'
   }
 }

@@ -117,6 +117,29 @@ param openAiChatCapacity int = 10
 param openAiEmbeddingCapacity int = 10
 @description('Optional Entra User object ID granted Cognitive Services OpenAI User for keyless local dev testing.')
 param openAiDevUserObjectId string = ''
+
+// ---------- Azure AI Search (Week 2, Day 2) ----------
+param deploySearch bool = false
+@allowed([
+  'basic'
+  'standard'
+  'standard2'
+  'standard3'
+])
+param searchSkuName string = 'basic'
+@allowed([
+  'disabled'
+  'free'
+  'standard'
+])
+param searchSemanticSearch string = 'free'
+param searchExpires string = ''
+@description('Optional Entra User object ID granted Search Service Contributor + Search Index Data Contributor for deploy-time index/re-index CLI.')
+param searchDevUserObjectId string = ''
+@description('Enable AI/RAG in Azure API and Functions (requires both deployOpenAi and deploySearch).')
+param aiEnabled bool = false
+param aiSearchIndexName string = 'azurelab-docs'
+param aiSearchMode string = 'HybridSemantic'
 // ---------- Naming convention ----------
 // Pattern: <type-abbrev>-<workload>-<component>-<env>-<region>[-<suffix>]
 // Suffix = 6 chars derived from the RG id: stable across redeploys, unique across tenants.
@@ -137,6 +160,7 @@ var names = {
   sqlServer: 'sql-${baseName}-${suffix}'                       // 1-63, lowercase, globally unique
   sqlDatabase: 'sqldb-${baseName}'
   openAi: 'oai-${workload}-${envName}-${openAiRegionShort}-${suffix}' // 2-64, globally unique customSubDomainName
+  aiSearch: 'srch-${baseName}-${suffix}'                              // 2-60, lowercase/digits/hyphens, globally unique
 }
 
 // Deterministic from the server name, so the apps can be wired without depending on the sql module
@@ -191,6 +215,11 @@ module appService 'modules/appservice.bicep' = {
     azureAdTenantId: azureAdTenantId
     azureAdClientId: azureAdClientId
     appInsightsName: monitoring.outputs.appInsightsName
+    aiEnabled: aiEnabled
+    openAiEndpoint: openAi.?outputs.endpoint ?? ''
+    aiSearchEndpoint: aiSearch.?outputs.endpoint ?? ''
+    aiSearchIndexName: aiSearchIndexName
+    aiSearchMode: aiSearchMode
   }
 }
 
@@ -241,6 +270,11 @@ module functionApp 'modules/functionapp.bicep' = {
     appInsightsName: monitoring.outputs.appInsightsName
     sqlServerFqdn: deploySql ? sqlServerFqdn : ''
     sqlDatabaseName: names.sqlDatabase
+    aiEnabled: aiEnabled
+    openAiEndpoint: openAi.?outputs.endpoint ?? ''
+    aiSearchEndpoint: aiSearch.?outputs.endpoint ?? ''
+    aiSearchIndexName: aiSearchIndexName
+    aiSearchMode: aiSearchMode
   }
 }
 
@@ -252,6 +286,18 @@ module openAi 'modules/openai.bicep' = if (deployOpenAi) {
     tags: tags
     chatCapacity: openAiChatCapacity
     embeddingCapacity: openAiEmbeddingCapacity
+  }
+}
+
+module aiSearch 'modules/aisearch.bicep' = if (deploySearch) {
+  name: 'aisearch'
+  params: {
+    name: names.aiSearch
+    location: location
+    tags: tags
+    skuName: searchSkuName
+    semanticSearch: searchSemanticSearch
+    expires: searchExpires
   }
 }
 
@@ -271,6 +317,9 @@ module roleAssignments 'modules/roleassignments.bicep' = {
     deployOpenAi: deployOpenAi
     openAiAccountName: openAi.?outputs.name ?? ''
     openAiDevUserObjectId: openAiDevUserObjectId
+    deploySearch: deploySearch
+    searchServiceName: aiSearch.?outputs.name ?? ''
+    searchDevUserObjectId: searchDevUserObjectId
   }
 }
 
@@ -335,3 +384,5 @@ output openAiName string = openAi.?outputs.name ?? ''
 output openAiEndpoint string = openAi.?outputs.endpoint ?? ''
 output openAiChatDeployment string = openAi.?outputs.chatDeploymentName ?? ''
 output openAiEmbeddingDeployment string = openAi.?outputs.embeddingDeploymentName ?? ''
+output aiSearchName string = aiSearch.?outputs.name ?? ''
+output aiSearchEndpoint string = aiSearch.?outputs.endpoint ?? ''

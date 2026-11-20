@@ -34,6 +34,16 @@ param azureAdTenantId string = ''
 param azureAdClientId string = ''
 param appInsightsName string
 
+// ---------- AI / RAG settings (Week 2, Day 2) ----------
+param aiEnabled bool = false
+param openAiEndpoint string = ''
+param openAiChatModel string = 'gpt-5-mini'
+param openAiEmbeddingModel string = 'text-embedding-3-small'
+param openAiEmbeddingDimensions int = 1536
+param aiSearchEndpoint string = ''
+param aiSearchIndexName string = 'azurelab-docs'
+param aiSearchMode string = 'HybridSemantic'
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
 }
@@ -50,9 +60,32 @@ var apiBaseSettings = {
   BlobStorage__ContainerName: apiBlobContainerName
   BlobStorage__CreateContainerIfMissing: 'false'
   BlobStorage__AllowHttpSas: 'false'
-  Ai__Enabled: 'false' // explicit: AI stays off in cloud week 1 (code default is also false)
   WEBSITE_RUN_FROM_PACKAGE: '1'
 }
+
+var aiSettings = aiEnabled && !empty(openAiEndpoint) && !empty(aiSearchEndpoint)
+  ? {
+      Ai__Enabled: 'true'
+      Ai__Provider: 'AzureOpenAI'
+      Ai__AzureOpenAI__Endpoint: openAiEndpoint
+      Ai__Chat__Model: openAiChatModel
+      Ai__Chat__TimeoutSeconds: '60'
+      Ai__Embedding__Model: openAiEmbeddingModel
+      Ai__Embedding__Dimensions: string(openAiEmbeddingDimensions)
+      Ai__Embedding__TimeoutSeconds: '30'
+      Ai__Embedding__DocumentPrefix: ''
+      Ai__Embedding__QueryPrefix: ''
+      Ai__VectorStore__Provider: 'AzureAISearch'
+      Ai__VectorStore__AzureAISearch__Endpoint: aiSearchEndpoint
+      Ai__VectorStore__AzureAISearch__IndexName: aiSearchIndexName
+      Ai__VectorStore__AzureAISearch__SearchMode: aiSearchMode
+      Ai__VectorStore__AzureAISearch__SemanticConfigurationName: 'sem-default'
+      Ai__Query__MaxAnswerTokens: '900'
+      Ai__Query__MinSimilarity: '0.45'
+    }
+  : {
+      Ai__Enabled: 'false'
+    }
 
 // Passwordless: no User Id, no Password. Connection Timeout=60 covers a serverless auto-resume (about 1 minute).
 var sqlConnection = 'Server=tcp:${sqlServerFqdn},1433;Database=${sqlDatabaseName};Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=60'
@@ -65,7 +98,7 @@ var authSettings = empty(azureAdTenantId) ? {} : {
 var appInsightsSettings = {
   APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
 }
-var apiSettings = union(apiBaseSettings, sqlSettings, authSettings, appInsightsSettings)
+var apiSettings = union(apiBaseSettings, aiSettings, sqlSettings, authSettings, appInsightsSettings)
 
 // Values mirror AzureLab.Worker/appsettings.json. Redeem has no Subscription (queue).
 // Outbox__Destination is deliberately NOT set: OutboxOptions binds "Destinations" (backlog).
