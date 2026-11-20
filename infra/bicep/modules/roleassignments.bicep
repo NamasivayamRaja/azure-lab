@@ -14,6 +14,11 @@ param grantStagingSlotRoles bool = false
 @description('true only if the dev/admin endpoints are reachable in Azure (they call Service Bus).')
 param apiDevEndpointsEnabled bool = false
 
+param deployOpenAi bool = false
+param openAiAccountName string = ''
+@description('Optional Entra User object ID granted Cognitive Services OpenAI User for local dev testing (no keys).')
+param openAiDevUserObjectId string = ''
+
 // Built-in role definition IDs. Cannot be validated offline: confirm in cloud week 1
 // with: az role definition list --name "<role name>"
 var roleIds = {
@@ -22,6 +27,7 @@ var roleIds = {
   blobDataContributor: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
   blobDelegator: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'db58b8e5-c6ad-4a2a-8342-4190687cbf4a')
   queueDataContributor: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
+  openAiUser: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
 }
 
 var apiPrincipalIds = grantStagingSlotRoles ? [apiPrincipalId, apiStagingPrincipalId] : [apiPrincipalId]
@@ -234,3 +240,43 @@ resource functionQueueContributor 'Microsoft.Authorization/roleAssignments@2022-
     }
   }
 ]
+
+// ---------- Azure OpenAI: Cognitive Services OpenAI User (API, Functions, optional dev user; Worker gets none) ----------
+resource openAi 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
+  name: deployOpenAi ? openAiAccountName : 'placeholder-openai'
+}
+
+// API calls chat + embeddings at query time.
+resource apiOpenAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for pid in apiPrincipalIds: if (deployOpenAi) {
+    name: guid(openAi.id, pid, roleIds.openAiUser)
+    scope: openAi
+    properties: {
+      roleDefinitionId: roleIds.openAiUser
+      principalId: pid
+      principalType: 'ServicePrincipal'
+    }
+  }
+]
+
+// Functions calls embeddings during document ingestion.
+resource functionOpenAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployOpenAi) {
+  name: guid(openAi.id, functionPrincipalId, roleIds.openAiUser)
+  scope: openAi
+  properties: {
+    roleDefinitionId: roleIds.openAiUser
+    principalId: functionPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Local developer identity for keyless DefaultAzureCredential verification in dev.
+resource devUserOpenAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployOpenAi && !empty(openAiDevUserObjectId)) {
+  name: guid(openAi.id, openAiDevUserObjectId, roleIds.openAiUser)
+  scope: openAi
+  properties: {
+    roleDefinitionId: roleIds.openAiUser
+    principalId: openAiDevUserObjectId
+    principalType: 'User'
+  }
+}

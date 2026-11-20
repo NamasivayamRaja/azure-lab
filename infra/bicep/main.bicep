@@ -107,6 +107,16 @@ param sqlZoneRedundant bool = false
 
 @description('Single-IP firewall rules (the plan outbound IPs). Never the 0.0.0.0 Allow-Azure-services rule.')
 param sqlAllowedIps array = []
+
+// ---------- Azure OpenAI (Week 2, Day 1) ----------
+param deployOpenAi bool = false
+@description('Azure OpenAI region. Defaults to RG location; override in .bicepparam when primary region lacks pay-as-you-go quota.')
+param openAiLocation string = location
+param openAiRegionShort string = regionShort
+param openAiChatCapacity int = 10
+param openAiEmbeddingCapacity int = 10
+@description('Optional Entra User object ID granted Cognitive Services OpenAI User for keyless local dev testing.')
+param openAiDevUserObjectId string = ''
 // ---------- Naming convention ----------
 // Pattern: <type-abbrev>-<workload>-<component>-<env>-<region>[-<suffix>]
 // Suffix = 6 chars derived from the RG id: stable across redeploys, unique across tenants.
@@ -126,6 +136,7 @@ var names = {
   keyVault: take('kv-${workload}-${envName}-${suffix}', 24)    // 3-24
   sqlServer: 'sql-${baseName}-${suffix}'                       // 1-63, lowercase, globally unique
   sqlDatabase: 'sqldb-${baseName}'
+  openAi: 'oai-${workload}-${envName}-${openAiRegionShort}-${suffix}' // 2-64, globally unique customSubDomainName
 }
 
 // Deterministic from the server name, so the apps can be wired without depending on the sql module
@@ -233,6 +244,17 @@ module functionApp 'modules/functionapp.bicep' = {
   }
 }
 
+module openAi 'modules/openai.bicep' = if (deployOpenAi) {
+  name: 'openai'
+  params: {
+    name: names.openAi
+    location: openAiLocation
+    tags: tags
+    chatCapacity: openAiChatCapacity
+    embeddingCapacity: openAiEmbeddingCapacity
+  }
+}
+
 module roleAssignments 'modules/roleassignments.bicep' = {
   name: 'roleassignments'
   params: {
@@ -246,6 +268,9 @@ module roleAssignments 'modules/roleassignments.bicep' = {
     functionStagingPrincipalId: functionApp.outputs.stagingPrincipalId
     grantStagingSlotRoles: grantStagingSlotRoles
     apiDevEndpointsEnabled: apiDevEndpointsEnabled
+    deployOpenAi: deployOpenAi
+    openAiAccountName: openAi.?outputs.name ?? ''
+    openAiDevUserObjectId: openAiDevUserObjectId
   }
 }
 
@@ -306,3 +331,7 @@ output functionHostName string = functionApp.outputs.defaultHostName
 output keyVaultUri string = keyVault.?outputs.vaultUri ?? ''
 output sqlServerFqdn string = deploySql ? sqlServerFqdn : ''
 output sqlDatabaseName string = deploySql ? names.sqlDatabase : ''
+output openAiName string = openAi.?outputs.name ?? ''
+output openAiEndpoint string = openAi.?outputs.endpoint ?? ''
+output openAiChatDeployment string = openAi.?outputs.chatDeploymentName ?? ''
+output openAiEmbeddingDeployment string = openAi.?outputs.embeddingDeploymentName ?? ''

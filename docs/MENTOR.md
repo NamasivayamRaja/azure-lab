@@ -24,4 +24,4 @@ Destructive or negative tests: DEV only, one at a time, always restore by redepl
 Terse. No re-summaries, no restating files, no pre-explaining future steps. Diffs, not whole files. Keep a step under ~250 words unless it is code or commands.
 
 ## Day end
-Write docs/handoffs/cloud-w1-dayN.md (what exists in Azure with names, decisions, pending changes, evidence tables, what the next day needs). Append to docs/cloud-week1-log.md (decisions, commands, issues and fixes) and to docs/interview-qa.md (6-8 Q&As). If you can't write files, print them for me to save.
+Write docs/handoffs/cloud-w2-dayN.md (what exists in Azure with names, decisions, pending changes, evidence tables, what the next day needs). Append to docs/cloud-week2-log.md (decisions, commands, issues and fixes) and to docs/interview-prep/interview-qa.md (6-8 Q&As). If you can't write files, print them for me to save.
