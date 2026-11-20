@@ -1,4 +1,5 @@
 using AzureLab.Rag.Abstractions;
+using AzureLab.Rag.Providers.AzureOpenAI;
 using AzureLab.Rag.Providers.Ollama;
 using AzureLab.Rag.Providers.Postgres;
 using Microsoft.Extensions.AI;
@@ -36,7 +37,9 @@ public static class RagRegistration
             case AiProvider.Ollama:
                 services.AddOllamaModels();
                 break;
-            // case AiProvider.AzureOpenAI: cloud week 2
+            case AiProvider.AzureOpenAI:
+                services.AddAzureOpenAiModels();
+                break;
             default:
                 break; // AiOptionsValidator reports a clear startup error via ValidateOnStart()
         }
