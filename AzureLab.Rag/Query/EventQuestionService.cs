@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using AzureLab.Rag.Abstractions;
@@ -61,8 +61,8 @@ public sealed partial class EventQuestionService(
         IReadOnlyList<RetrievedChunk> hits;
         using (var search = RagTelemetry.Source.StartActivity("rag.search"))
         {
-            // EventId filter is enforced inside the store (SQL), not in the prompt.
-            hits = await store.SearchAsync(eventId, queryVector, o.TopK, ct);
+            // EventId filter is enforced inside the store (SQL / OData filter), never in the prompt.
+            hits = await store.SearchAsync(eventId, queryVector, o.TopK, ct, question);
             search?.SetTag("rag.hits", hits.Count);
         }
         var searchMs = sw.ElapsedMilliseconds; sw.Restart();
@@ -122,7 +122,9 @@ public sealed partial class EventQuestionService(
         RagTelemetry.GenerateMs.Record(generateMs);
 
         var answer = response.Text.Trim().Replace('\u2019', '\'');
-        var diagnostics = new AskDiagnostics(hits.Count, relevant.Count, top, embedMs, searchMs, generateMs);
+        var diagnostics = new AskDiagnostics(
+            hits.Count, relevant.Count, top, embedMs, searchMs, generateMs,
+            response.Usage?.InputTokenCount, response.Usage?.OutputTokenCount);
 
         if (answer.StartsWith("I don't know", StringComparison.OrdinalIgnoreCase))
         {
