@@ -92,3 +92,11 @@ param sqlAllowedIps = [
   '52.172.252.64'
   '52.172.254.209'
 ]
+
+// ---------- Azure OpenAI (Week 2, Day 1 — Option A: southindia) ----------
+param deployOpenAi = true
+param openAiLocation = 'southindia'
+param openAiRegionShort = 'sin'
+param openAiChatCapacity = 10
+param openAiEmbeddingCapacity = 10
+param openAiDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')

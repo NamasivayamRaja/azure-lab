@@ -17,6 +17,7 @@ public sealed class AiOptions
     public ChatModelOptions Chat { get; set; } = new();
     public EmbeddingModelOptions Embedding { get; set; } = new();
     public OllamaOptions Ollama { get; set; } = new();
+    public AzureOpenAiOptions AzureOpenAI { get; set; } = new();
     public VectorStoreOptions VectorStore { get; set; } = new();
     public IngestionOptions Ingestion { get; set; } = new();   // inside AiOptions
     public QueryOptions Query { get; set; } = new();           // inside AiOptions
@@ -38,6 +39,11 @@ public sealed class EmbeddingModelOptions
 }
 
 public sealed class OllamaOptions
+{
+    public string Endpoint { get; set; } = "";
+}
+
+public sealed class AzureOpenAiOptions
 {
     public string Endpoint { get; set; } = "";
 }
