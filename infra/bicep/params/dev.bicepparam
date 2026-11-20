@@ -100,3 +100,13 @@ param openAiRegionShort = 'sin'
 param openAiChatCapacity = 10
 param openAiEmbeddingCapacity = 10
 param openAiDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
+
+// ---------- Azure AI Search (Week 2, Day 2 — Basic in centralindia; toggled on late, deleted EOD) ----------
+param deploySearch = true
+param searchSkuName = 'basic'
+param searchSemanticSearch = 'free'
+param searchExpires = '2026-11-20'
+param searchDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
+param aiEnabled = true
+param aiSearchIndexName = 'azurelab-docs-v2'
+param aiSearchMode = 'HybridSemantic'

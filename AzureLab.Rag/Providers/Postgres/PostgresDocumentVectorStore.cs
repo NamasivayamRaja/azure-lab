@@ -106,7 +106,7 @@ internal sealed class PostgresDocumentVectorStore(
     }
 
     public async Task<IReadOnlyList<RetrievedChunk>> SearchAsync(
-        Guid eventId, ReadOnlyMemory<float> queryEmbedding, int topK, CancellationToken ct)
+        Guid eventId, ReadOnlyMemory<float> queryEmbedding, int topK, CancellationToken ct, string? queryText = null)
     {
         if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK));
 
