@@ -1,4 +1,5 @@
 using AzureLab.Rag.Abstractions;
+using AzureLab.Rag.Providers.AzureAISearch;
 using AzureLab.Rag.Providers.AzureOpenAI;
 using AzureLab.Rag.Providers.Ollama;
 using AzureLab.Rag.Providers.Postgres;
@@ -52,7 +53,9 @@ public static class RagRegistration
             case VectorStoreProvider.Postgres:
                 services.AddPostgresVectorStore(configuration);
                 break;
-            // case VectorStoreProvider.AzureAISearch: cloud week 2
+            case VectorStoreProvider.AzureAISearch:
+                services.AddAzureAiSearchVectorStore();
+                break;
             default:
                 break; // AiOptionsValidator reports a clear startup error via ValidateOnStart()
         }
@@ -84,7 +87,7 @@ public static class RagRegistration
     {
         public Task<ReplaceOutcome> ReplaceDocumentAsync(DocumentToStore document, CancellationToken ct) =>
             throw new InvalidOperationException("AI features are disabled (Ai:Enabled=false).");
-        public Task<IReadOnlyList<RetrievedChunk>> SearchAsync(Guid eventId, ReadOnlyMemory<float> queryVector, int topK, CancellationToken ct) =>
+        public Task<IReadOnlyList<RetrievedChunk>> SearchAsync(Guid eventId, ReadOnlyMemory<float> queryVector, int topK, CancellationToken ct, string? queryText = null) =>
             throw new InvalidOperationException("AI features are disabled (Ai:Enabled=false).");
     }
 }

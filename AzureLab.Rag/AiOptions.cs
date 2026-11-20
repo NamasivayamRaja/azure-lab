@@ -2,6 +2,7 @@ namespace AzureLab.Rag;
 
 public enum AiProvider { Unspecified = 0, Ollama, AzureOpenAI }
 public enum VectorStoreProvider { Unspecified = 0, Postgres, AzureAISearch }
+public enum AzureAiSearchMode { VectorOnly = 0, Hybrid, HybridSemantic }
 
 public sealed class AiOptions
 {
@@ -51,6 +52,15 @@ public sealed class AzureOpenAiOptions
 public sealed class VectorStoreOptions
 {
     public VectorStoreProvider Provider { get; set; }
+    public AzureAiSearchOptions AzureAISearch { get; set; } = new();
+}
+
+public sealed class AzureAiSearchOptions
+{
+    public string Endpoint { get; set; } = "";
+    public string IndexName { get; set; } = "";
+    public AzureAiSearchMode SearchMode { get; set; } = AzureAiSearchMode.HybridSemantic;
+    public string SemanticConfigurationName { get; set; } = "sem-default";
 }
 
 public sealed class IngestionOptions

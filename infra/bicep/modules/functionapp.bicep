@@ -13,6 +13,16 @@ param sqlDatabaseName string = ''
 
 param healthCheckPath string = '/api/health'
 
+// ---------- AI / RAG settings (Week 2, Day 2) ----------
+param aiEnabled bool = false
+param openAiEndpoint string = ''
+param openAiChatModel string = 'gpt-5-mini'
+param openAiEmbeddingModel string = 'text-embedding-3-small'
+param openAiEmbeddingDimensions int = 1536
+param aiSearchEndpoint string = ''
+param aiSearchIndexName string = 'azurelab-docs'
+param aiSearchMode string = 'HybridSemantic'
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
 }
@@ -45,6 +55,28 @@ resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
 // ConnectionStrings__LabDb is passwordless (system-assigned managed identity). Connection Timeout=60 covers a serverless auto-resume.
 var sqlSettings = empty(sqlServerFqdn) ? {} : { ConnectionStrings__LabDb: 'Server=tcp:${sqlServerFqdn},1433;Database=${sqlDatabaseName};Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=60' }
 
+var aiSettings = aiEnabled && !empty(openAiEndpoint) && !empty(aiSearchEndpoint)
+  ? {
+      Ai__Enabled: 'true'
+      Ai__Provider: 'AzureOpenAI'
+      Ai__AzureOpenAI__Endpoint: openAiEndpoint
+      Ai__Chat__Model: openAiChatModel
+      Ai__Chat__TimeoutSeconds: '60'
+      Ai__Embedding__Model: openAiEmbeddingModel
+      Ai__Embedding__Dimensions: string(openAiEmbeddingDimensions)
+      Ai__Embedding__TimeoutSeconds: '30'
+      Ai__Embedding__DocumentPrefix: ''
+      Ai__Embedding__QueryPrefix: ''
+      Ai__VectorStore__Provider: 'AzureAISearch'
+      Ai__VectorStore__AzureAISearch__Endpoint: aiSearchEndpoint
+      Ai__VectorStore__AzureAISearch__IndexName: aiSearchIndexName
+      Ai__VectorStore__AzureAISearch__SearchMode: aiSearchMode
+      Ai__VectorStore__AzureAISearch__SemanticConfigurationName: 'sem-default'
+    }
+  : {
+      Ai__Enabled: 'false'
+    }
+
 var baseFunctionSettings = union({
   FUNCTIONS_EXTENSION_VERSION: '~4'
   FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
@@ -54,9 +86,8 @@ var baseFunctionSettings = union({
   ServiceBusConnection__fullyQualifiedNamespace: serviceBusFqdn
   EventDocsStorage__blobServiceUri: blobServiceUri
   APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-  Ai__Enabled: 'false' // explicit: AI stays off in cloud week 1 (code default is also false)
   WEBSITE_RUN_FROM_PACKAGE: '1'
-}, sqlSettings)
+}, aiSettings, sqlSettings)
 
 resource functionSettings 'Microsoft.Web/sites/config@2024-11-01' = {
   parent: functionApp

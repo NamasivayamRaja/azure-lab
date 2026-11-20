@@ -1,4 +1,4 @@
-﻿namespace AzureLab.Rag.Abstractions;
+namespace AzureLab.Rag.Abstractions;
 
 public sealed record ChunkToStore(
     int ChunkIndex, string Content, string ContentHash, ReadOnlyMemory<float> Embedding);
@@ -30,8 +30,9 @@ public interface IDocumentVectorStore
 
     /// <summary>
     /// Top-k nearest chunks. EventId is a mandatory filter, never optional.
-    /// Similarity = cosine similarity, 1 = same direction, clamped at 0.
+    /// Similarity is normalized to [0, 1] (cosine for Postgres/vector-only, normalized RRF/reranker for Search hybrid).
+    /// Pass queryText when available so providers supporting hybrid/semantic retrieval can combine BM25 + vector + reranker.
     /// </summary>
     Task<IReadOnlyList<RetrievedChunk>> SearchAsync(
-        Guid eventId, ReadOnlyMemory<float> queryEmbedding, int topK, CancellationToken ct);
+        Guid eventId, ReadOnlyMemory<float> queryEmbedding, int topK, CancellationToken ct, string? queryText = null);
 }

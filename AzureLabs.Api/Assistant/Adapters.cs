@@ -45,7 +45,7 @@ public sealed class RagPassageSearch(
     {
         var q = options.Value.Query;
         var vector = await embedder.EmbedQueryAsync(query, ct);
-        var hits = await store.SearchAsync(eventId, vector, q.TopK, ct);   // EventId filter enforced in SQL
+        var hits = await store.SearchAsync(eventId, vector, q.TopK, ct, query);   // EventId filter enforced in store
 
         return hits.Where(h => h.Similarity >= q.MinSimilarity)
                    .Take(maxPassages)

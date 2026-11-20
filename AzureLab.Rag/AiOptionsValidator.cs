@@ -38,8 +38,25 @@ internal sealed class AiOptionsValidator : IValidateOptions<AiOptions>
         if (o.Embedding.Dimensions <= 0) errors.Add("Ai:Embedding:Dimensions must be > 0.");
         if (o.Embedding.TimeoutSeconds <= 0) errors.Add("Ai:Embedding.TimeoutSeconds must be > 0.");
 
-        if (o.VectorStore.Provider != VectorStoreProvider.Postgres)
-            errors.Add("Ai:VectorStore:Provider must be 'Postgres' (AzureAISearch is reserved for cloud week 2).");
+        switch (o.VectorStore.Provider)
+        {
+            case VectorStoreProvider.Postgres:
+                break;
+            case VectorStoreProvider.AzureAISearch:
+                var s = o.VectorStore.AzureAISearch;
+                if (!Uri.TryCreate(s.Endpoint, UriKind.Absolute, out var searchUri) ||
+                    !string.Equals(searchUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                    errors.Add("Ai:VectorStore:AzureAISearch:Endpoint must be an absolute HTTPS URI.");
+                if (string.IsNullOrWhiteSpace(s.IndexName))
+                    errors.Add("Ai:VectorStore:AzureAISearch:IndexName is required.");
+                if (s.SearchMode == AzureAiSearchMode.HybridSemantic &&
+                    string.IsNullOrWhiteSpace(s.SemanticConfigurationName))
+                    errors.Add("Ai:VectorStore:AzureAISearch:SemanticConfigurationName is required when SearchMode is HybridSemantic.");
+                break;
+            default:
+                errors.Add("Ai:VectorStore:Provider must be 'Postgres' or 'AzureAISearch'.");
+                break;
+        }
 
         var ing = o.Ingestion;
         if (ing.ChunkSizeChars is < 200 or > 4000)
