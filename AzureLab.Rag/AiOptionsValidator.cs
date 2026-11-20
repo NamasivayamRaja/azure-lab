@@ -21,7 +21,11 @@ internal sealed class AiOptionsValidator : IValidateOptions<AiOptions>
                     errors.Add("Ai:Ollama:Endpoint must be an absolute URI.");
                 break;
             case AiProvider.AzureOpenAI:
-                errors.Add("Ai:Provider=AzureOpenAI is reserved for cloud week 2 and is not implemented yet.");
+                if (!Uri.TryCreate(o.AzureOpenAI.Endpoint, UriKind.Absolute, out var aoaiUri) ||
+                    !string.Equals(aoaiUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                    errors.Add("Ai:AzureOpenAI:Endpoint must be an absolute HTTPS URI.");
+                if (!string.IsNullOrEmpty(o.Embedding.DocumentPrefix) || !string.IsNullOrEmpty(o.Embedding.QueryPrefix))
+                    errors.Add("Ai:Embedding:DocumentPrefix and QueryPrefix must be empty for AzureOpenAI (only Ollama nomic-embed-text uses prefixes).");
                 break;
             default:
                 errors.Add("Ai:Provider must be 'Ollama' or 'AzureOpenAI'.");
