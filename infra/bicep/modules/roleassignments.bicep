@@ -29,6 +29,11 @@ param contentSafetyAccountName string = ''
 @description('Optional Entra User object ID granted Cognitive Services User for local keyless Prompt Shields evaluation.')
 param contentSafetyDevUserObjectId string = ''
 
+param deployDocumentIntelligence bool = false
+param docIntelligenceAccountName string = ''
+@description('Optional Entra User object ID granted Cognitive Services User for local keyless Document Intelligence evaluation.')
+param docIntelligenceDevUserObjectId string = ''
+
 // Built-in role definition IDs. Cannot be validated offline: confirm in cloud week 1
 // with: az role definition list --name "<role name>"
 var roleIds = {
@@ -370,6 +375,33 @@ resource devUserContentSafetyUser 'Microsoft.Authorization/roleAssignments@2022-
   properties: {
     roleDefinitionId: roleIds.cognitiveServicesUser
     principalId: contentSafetyDevUserObjectId
+    principalType: 'User'
+  }
+}
+
+// ---------- Azure AI Document Intelligence: Cognitive Services User (Functions + optional dev user; API & Worker get none) ----------
+resource docIntelligence 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
+  name: deployDocumentIntelligence ? docIntelligenceAccountName : 'placeholder-docintelligence'
+}
+
+// Functions calls Document Intelligence during blob/queue document ingestion.
+resource functionDocIntelligenceUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployDocumentIntelligence) {
+  name: guid(docIntelligence.id, functionPrincipalId, roleIds.cognitiveServicesUser)
+  scope: docIntelligence
+  properties: {
+    roleDefinitionId: roleIds.cognitiveServicesUser
+    principalId: functionPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Local developer identity for keyless Document Intelligence comparison in dev.
+resource devUserDocIntelligenceUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployDocumentIntelligence && !empty(docIntelligenceDevUserObjectId)) {
+  name: guid(docIntelligence.id, docIntelligenceDevUserObjectId, roleIds.cognitiveServicesUser)
+  scope: docIntelligence
+  properties: {
+    roleDefinitionId: roleIds.cognitiveServicesUser
+    principalId: docIntelligenceDevUserObjectId
     principalType: 'User'
   }
 }
