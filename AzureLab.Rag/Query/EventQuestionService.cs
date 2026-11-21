@@ -12,10 +12,12 @@ public sealed partial class EventQuestionService(
     ITextEmbedder embedder,
     IDocumentVectorStore store,
     IChatClient chat,
+    IContentSafetyGate safetyGate,
     IOptions<AiOptions> options,
     ILogger<EventQuestionService> logger)
 {
     public const string NoAnswer = "I don't know based on the available documents.";
+    public const string SafetyRefusal = "I can't process that request.";
 
     private const string SystemPrompt = """
         You answer questions about event documents.
@@ -50,7 +52,32 @@ public sealed partial class EventQuestionService(
     private async Task<AskResult> AskCoreAsync(Guid eventId, string question, CancellationToken ct)
     {
         var o = options.Value.Query;
+        var cs = options.Value.ContentSafety;
         var sw = Stopwatch.StartNew();
+
+        // Gate 1: Direct user prompt shield BEFORE embedding/search (fail-closed by default).
+        if (cs.Enabled)
+        {
+            using var gateSpan = RagTelemetry.Source.StartActivity("rag.safety.input");
+            var inputDecision = await safetyGate.ShieldAsync(question, Array.Empty<string>(), ct);
+            RagTelemetry.SafetyMs.Record(inputDecision.LatencyMs, RagTelemetry.Tag("stage", "input"));
+            if (!inputDecision.WasEvaluated)
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "input"), RagTelemetry.Tag("decision", "error"));
+                if (cs.FailClosedOnInput)
+                    throw new ContentSafetyUnavailableException("input", inputDecision.ErrorReason ?? "unknown");
+            }
+            else if (inputDecision.UserPromptAttackDetected)
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "input"), RagTelemetry.Tag("decision", "blocked"));
+                logger.LogWarning("outcome=BlockedBySafety stage=input latencyMs={Ms}", inputDecision.LatencyMs);
+                return new(false, SafetyRefusal, [], new(0, 0, null, 0, 0, 0), "BlockedBySafety");
+            }
+            else
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "input"), RagTelemetry.Tag("decision", "allow"));
+            }
+        }
 
         ReadOnlyMemory<float> queryVector;
         using (RagTelemetry.Source.StartActivity("rag.embed"))
@@ -91,6 +118,36 @@ public sealed partial class EventQuestionService(
             total += h.Content.Length;
         }
 
+        // Gate 2: Indirect document prompt shield on retrieved chunks (surgical drop, fail-closed by default).
+        if (cs.Enabled && used.Count > 0)
+        {
+            using var docSpan = RagTelemetry.Source.StartActivity("rag.safety.documents");
+            var docDecision = await safetyGate.ShieldAsync(null, used.Select(u => u.Content).ToList(), ct);
+            RagTelemetry.SafetyMs.Record(docDecision.LatencyMs, RagTelemetry.Tag("stage", "documents"));
+            if (!docDecision.WasEvaluated)
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "documents"), RagTelemetry.Tag("decision", "error"));
+                if (cs.FailClosedOnDocuments)
+                    throw new ContentSafetyUnavailableException("documents", docDecision.ErrorReason ?? "unknown");
+            }
+            else if (docDecision.AnyDocumentAttackDetected)
+            {
+                var attacked = docDecision.AttackedDocumentIndexes.ToHashSet();
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "documents"), RagTelemetry.Tag("decision", "filtered"));
+                logger.LogWarning("safety_document_attack dropped={Dropped} total={Total} latencyMs={Ms}",
+                    attacked.Count, used.Count, docDecision.LatencyMs);
+                used = used.Where((_, idx) => !attacked.Contains(idx)).ToList();
+                if (used.Count == 0)
+                {
+                    return new(false, SafetyRefusal, [], new(hits.Count, relevant.Count, top, embedMs, searchMs, 0), "BlockedBySafety");
+                }
+            }
+            else
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "documents"), RagTelemetry.Tag("decision", "allow"));
+            }
+        }
+
         var messages = new List<ChatMessage>
         {
             new(ChatRole.System, SystemPrompt),
@@ -100,21 +157,41 @@ public sealed partial class EventQuestionService(
         ChatResponse response;
         using (var gen = RagTelemetry.Source.StartActivity("rag.generate"))
         {
-            response = await chat.GetResponseAsync(messages,
-                new ChatOptions { Temperature = 0.1f, MaxOutputTokens = o.MaxAnswerTokens }, ct);
+            try
+            {
+                response = await chat.GetResponseAsync(messages,
+                    new ChatOptions { Temperature = 0.1f, MaxOutputTokens = o.MaxAnswerTokens }, ct);
+            }
+            catch (Exception ex) when (ex.Message.Contains("content_filter", StringComparison.OrdinalIgnoreCase))
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "model_filter"), RagTelemetry.Tag("decision", "blocked"));
+                logger.LogWarning("outcome=BlockedByModelFilter exception={Type}", ex.GetType().Name);
+                return new(false, SafetyRefusal, [], new(hits.Count, relevant.Count, top, embedMs, searchMs, sw.ElapsedMilliseconds), "BlockedByModelFilter");
+            }
             gen?.SetTag("rag.context_chunks", used.Count);
 
             if (response.Usage is { } usage)
             {
+                var inTok = usage.InputTokenCount ?? 0;
+                var outTok = usage.OutputTokenCount ?? 0;
                 if (usage.InputTokenCount is long input)
                 {
                     gen?.SetTag("rag.tokens.input", input);
+                    gen?.SetTag("gen_ai.usage.input_tokens", input);
                     RagTelemetry.Tokens.Add(input, RagTelemetry.Tag("direction", "input"));
                 }
                 if (usage.OutputTokenCount is long output)
                 {
                     gen?.SetTag("rag.tokens.output", output);
+                    gen?.SetTag("gen_ai.usage.output_tokens", output);
                     RagTelemetry.Tokens.Add(output, RagTelemetry.Tag("direction", "output"));
+                }
+                if (inTok > 0 || outTok > 0)
+                {
+                    var chatOpt = options.Value.Chat;
+                    var costUsd = RagTelemetry.EstimateCostUsd(inTok, outTok, chatOpt.InputCostPerMillionUsd, chatOpt.OutputCostPerMillionUsd);
+                    gen?.SetTag("rag.estimated_cost_usd", costUsd);
+                    RagTelemetry.CostUsd.Record(costUsd, RagTelemetry.Tag("model", chatOpt.Model));
                 }
             }
         }
@@ -125,6 +202,30 @@ public sealed partial class EventQuestionService(
         var diagnostics = new AskDiagnostics(
             hits.Count, relevant.Count, top, embedMs, searchMs, generateMs,
             response.Usage?.InputTokenCount, response.Usage?.OutputTokenCount);
+
+        // Gate 3: Output text moderation (fail-open by default; AOAI built-in output filter is defense-in-depth).
+        if (cs.Enabled && !string.IsNullOrWhiteSpace(answer))
+        {
+            using var outSpan = RagTelemetry.Source.StartActivity("rag.safety.output");
+            var outDecision = await safetyGate.ModerateTextAsync(answer, ct);
+            RagTelemetry.SafetyMs.Record(outDecision.LatencyMs, RagTelemetry.Tag("stage", "output"));
+            if (!outDecision.WasEvaluated)
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "output"), RagTelemetry.Tag("decision", "error"));
+                if (cs.FailClosedOnOutput)
+                    throw new ContentSafetyUnavailableException("output", outDecision.ErrorReason ?? "unknown");
+            }
+            else if (outDecision.Blocked)
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "output"), RagTelemetry.Tag("decision", "blocked"));
+                logger.LogWarning("outcome=BlockedBySafety stage=output latencyMs={Ms}", outDecision.LatencyMs);
+                return new(false, SafetyRefusal, [], diagnostics, "BlockedBySafety");
+            }
+            else
+            {
+                RagTelemetry.SafetyDecisions.Add(1, RagTelemetry.Tag("stage", "output"), RagTelemetry.Tag("decision", "allow"));
+            }
+        }
 
         if (answer.StartsWith("I don't know", StringComparison.OrdinalIgnoreCase))
         {

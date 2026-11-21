@@ -78,3 +78,22 @@
   4. **Index Alias resolution under least-privilege `Search Index Data Reader`:** Querying an alias name (`azurelab-docs`) worked locally under Dev User (`Search Service Contributor` + `Index Data Contributor`) but returned `404 Index not found` under API MI (`Search Index Data Reader` only). Pointing `Ai__VectorStore__AzureAISearch__IndexName` to the concrete versioned index (`azurelab-docs-v2`) preserved strict least privilege.
   5. **Thresholding on RRF scores (`Hybrid` mode):** RRF scores depend only on rank (`1/(60+rank)`), so even completely off-topic queries (`"What is the capital of France?"`) get rank #1 in one leg (`0.51` normalized). Only threshold on cosine similarity (`VectorOnly`) or Semantic L2 `RerankerScore` (`HybridSemantic`).
   6. **AI Search vs OpenAI RBAC revocation latency:** While Azure OpenAI cached removed RBAC roles for >5 minutes on Day 1, Azure AI Search enforced `Search Index Data Reader` removal at **`t+0s`** (`403 Forbidden`).
+
+
+## Day 3 — 2026-11-21 (Content Safety Gate, Day 6 Security & Tool-Calling Evals on `gpt-5-mini`, GenAI Telemetry, Cost Guardrails)
+- **Decisions:**
+  - Verified Prompt Shields regional availability: unsupported in `centralindia`, supported in **`southindia`** — co-located `cs-azurelab-dev-sin-jyqvnq` (`S0`, `disableLocalAuth: true`) with Azure OpenAI in `southindia` (already allowed by `allowed-locations-cin`).
+  - Added `IContentSafetyGate` (`AzureLab.Rag`) + `IAssistantSafetyGate` (`AzureLab.Assistant`, keeping Clean Architecture dependency-free) using REST `2024-09-01` (`text:shieldPrompt`, `text:analyze`) + `DefaultAzureCredential` (0 new NuGet packages).
+  - Fail modes: **fail-closed** on user input & retrieved chunks (with surgical chunk dropping); **fail-open** on model output (AOAI built-in output filter provides defense-in-depth). Raised `TimeoutSeconds` from `3s` to `10s` after cold-start token/TLS latency hit 3s.
+  - Enabled OTel GenAI semantic conventions via `Microsoft.Extensions.AI` `.UseOpenTelemetry(sourceName: RagTelemetry.Name)` (`EnableSensitiveData = false`), added `rag.cost.usd` metric/span tag, and deployed `alert-openai-http-429` in `alerts.bicep`.
+  - Kept `srch-azurelab-dev-cin-jyqvnq` running per user request because Day 4 runs today (delete at Day 4 EOD).
+- **Commands & Evidence:**
+  - Recreated AI Search + deployed Content Safety & `alert-openai-http-429` via `az deployment group create`; re-indexed `azurelab-docs-v2` via `AzureLab.SearchTool`.
+  - Prompt Shields keyless smoke test: `userPromptAnalysis.attackDetected: false`, `documentsAnalysis[0].attackDetected: true`.
+  - Security lab + live `gpt-5-mini` Gate OFF vs Gate ON: direct jailbreak switched from `BlockedByModelFilter` (paid embed+search first) to `BlockedBySafety` (Gate 1, 0 tokens); poisoned doc cleanly answered `"Registration opens at 9:00 AM at the main hall. [1]"` via surgical chunk drop.
+  - 15-case tool-calling eval: `gpt-5-mini` **14/15 (93%)**, avg `4,895 ms` (~2.8s warm), `553` in / `132` out vs `qwen2.5:3b` `9–11/15` (`13–16s`) and `llama3.2:3b` `11–12/15` (`15s`). Only `gpt-5-mini` failure was raw `R2` (`ProposeRedeem` called on jailbreak) — proving Gate 1 + deterministic code controls are essential even on frontier models.
+  - Live OTel span verified: `chat gpt-5-mini` emitted `gen_ai.usage.input_tokens=186`, `gen_ai.usage.output_tokens=148`, `gen_ai.usage.reasoning.output_tokens=128`, `rag.estimated_cost_usd=0.000342`, zero PII.
+- **Issues & Fixes:**
+  - Local `/ask` test returned `401` with `X-Dev-User` because `Program.cs` uses real Entra JWT Bearer since Week 1 -> switched to `az account get-access-token --resource api://$AZURELAB_API_CLIENT_ID` + `EventEnrollments` row.
+  - `ContentSafetyOptions.TimeoutSeconds = 3` timed out on cold token acquisition -> raised to `10s` in Bicep (`30s` locally).
+  - `AssistantEvalEndpoint` hardcoded `OllamaApiClient` and aborted on HTTP 400 `content_filter` -> updated to use DI `IChatClient` for `AzureOpenAI`, raised `MaxOutputTokens` for reasoning tokens, and scored `content_filter` cleanly.

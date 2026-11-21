@@ -43,6 +43,8 @@ param openAiEmbeddingDimensions int = 1536
 param aiSearchEndpoint string = ''
 param aiSearchIndexName string = 'azurelab-docs'
 param aiSearchMode string = 'HybridSemantic'
+param contentSafetyEnabled bool = false
+param contentSafetyEndpoint string = ''
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
@@ -87,6 +89,20 @@ var aiSettings = aiEnabled && !empty(openAiEndpoint) && !empty(aiSearchEndpoint)
       Ai__Enabled: 'false'
     }
 
+var contentSafetySettings = aiEnabled && contentSafetyEnabled && !empty(contentSafetyEndpoint)
+  ? {
+      Ai__ContentSafety__Enabled: 'true'
+      Ai__ContentSafety__Endpoint: contentSafetyEndpoint
+      Ai__ContentSafety__TimeoutSeconds: '10'
+      Ai__ContentSafety__SeverityThreshold: '2'
+      Ai__ContentSafety__FailClosedOnInput: 'true'
+      Ai__ContentSafety__FailClosedOnDocuments: 'true'
+      Ai__ContentSafety__FailClosedOnOutput: 'false'
+    }
+  : {
+      Ai__ContentSafety__Enabled: 'false'
+    }
+
 // Passwordless: no User Id, no Password. Connection Timeout=60 covers a serverless auto-resume (about 1 minute).
 var sqlConnection = 'Server=tcp:${sqlServerFqdn},1433;Database=${sqlDatabaseName};Authentication=Active Directory Managed Identity;Encrypt=True;TrustServerCertificate=False;Connection Timeout=60'
 var sqlSettings = empty(sqlServerFqdn) ? {} : { ConnectionStrings__Default: sqlConnection }
@@ -98,7 +114,7 @@ var authSettings = empty(azureAdTenantId) ? {} : {
 var appInsightsSettings = {
   APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
 }
-var apiSettings = union(apiBaseSettings, aiSettings, sqlSettings, authSettings, appInsightsSettings)
+var apiSettings = union(apiBaseSettings, aiSettings, contentSafetySettings, sqlSettings, authSettings, appInsightsSettings)
 
 // Values mirror AzureLab.Worker/appsettings.json. Redeem has no Subscription (queue).
 // Outbox__Destination is deliberately NOT set: OutboxOptions binds "Destinations" (backlog).

@@ -22,12 +22,15 @@ public sealed class AiOptions
     public VectorStoreOptions VectorStore { get; set; } = new();
     public IngestionOptions Ingestion { get; set; } = new();   // inside AiOptions
     public QueryOptions Query { get; set; } = new();           // inside AiOptions
+    public ContentSafetyOptions ContentSafety { get; set; } = new();
 }
 
 public sealed class ChatModelOptions
 {
     public string Model { get; set; } = "";                  // Azure: the deployment name
     public int TimeoutSeconds { get; set; }
+    public double InputCostPerMillionUsd { get; set; } = 0.25;   // gpt-5-mini default
+    public double OutputCostPerMillionUsd { get; set; } = 2.00;  // gpt-5-mini default
 }
 
 public sealed class EmbeddingModelOptions
@@ -78,4 +81,15 @@ public sealed class QueryOptions
     public int MaxContextChars { get; set; } = 4000;
     public int MaxQuestionChars { get; set; } = 500;
     public int MaxAnswerTokens { get; set; } = 300;
+}
+
+public sealed class ContentSafetyOptions
+{
+    public bool Enabled { get; set; } = false;
+    public string Endpoint { get; set; } = "";
+    public int TimeoutSeconds { get; set; } = 30;
+    public int SeverityThreshold { get; set; } = 2; // FourSeverityLevels: 0, 2, 4, 6
+    public bool FailClosedOnInput { get; set; } = true;
+    public bool FailClosedOnDocuments { get; set; } = true;
+    public bool FailClosedOnOutput { get; set; } = false;
 }

@@ -26,16 +26,23 @@ internal static class AzureOpenAiRegistration
 
             // GPT-5 / o-series reasoning models reject custom Temperature (HTTP 400).
             // Isolate that quirk at the provider boundary so business code stays provider-agnostic.
-            return IsReasoningModel(o.Chat.Model)
+            var sanitized = IsReasoningModel(o.Chat.Model)
                 ? new ReasoningModelChatClient(inner)
                 : inner;
+
+            return sanitized.AsBuilder()
+                .UseOpenTelemetry(sourceName: RagTelemetry.Name, configure: cfg => cfg.EnableSensitiveData = false)
+                .Build(sp);
         });
 
         services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
         {
             var o = sp.GetRequiredService<IOptions<AiOptions>>().Value;
             var client = sp.GetRequiredService<AzureOpenAIClient>();
-            return client.GetEmbeddingClient(o.Embedding.Model).AsIEmbeddingGenerator();
+            return client.GetEmbeddingClient(o.Embedding.Model).AsIEmbeddingGenerator()
+                .AsBuilder()
+                .UseOpenTelemetry(sourceName: RagTelemetry.Name, configure: cfg => cfg.EnableSensitiveData = false)
+                .Build(sp);
         });
 
         return services;

@@ -101,12 +101,19 @@ param openAiChatCapacity = 10
 param openAiEmbeddingCapacity = 10
 param openAiDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
 
-// ---------- Azure AI Search (Week 2, Day 2 — Basic in centralindia; toggled on late, deleted EOD) ----------
-param deploySearch = false
+// ---------- Azure AI Search (Week 2, Day 2/3 — Basic in centralindia; recreated for Day 3) ----------
+param deploySearch = true
 param searchSkuName = 'basic'
 param searchSemanticSearch = 'free'
-param searchExpires = '2026-11-20'
+param searchExpires = '2026-11-21'
 param searchDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
-param aiEnabled = false
+param aiEnabled = true
 param aiSearchIndexName = 'azurelab-docs-v2'
 param aiSearchMode = 'HybridSemantic'
+
+// ---------- Azure AI Content Safety (Week 2, Day 3 — S0 in southindia for Prompt Shields) ----------
+param deployContentSafety = true
+param contentSafetyLocation = 'southindia'
+param contentSafetyRegionShort = 'sin'
+param contentSafetySkuName = 'S0'
+param contentSafetyDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
