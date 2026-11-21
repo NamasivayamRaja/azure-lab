@@ -44,3 +44,37 @@
   5. **Initial sequential 6-call burst at `capacity: 1` all returned `200` (`rem-tok=9984`)** because control-plane -> data-plane quota changes have propagation lag and sequential calls let the sliding window refill. Concurrent calls after propagation proved **RPM exhaustion** (`rem-tok=975` still available).
   6. **Windows PowerShell 5.1 `[System.Net.Http.HttpClient]`** requires `Add-Type -AssemblyName System.Net.Http` before use.
   7. **Reasoning model (`gpt-5-mini`) token & parameter traps:** rejects custom `temperature` (`400`) and consumes hidden `reasoning_tokens` out of `max_completion_tokens` (64 tokens just for `"pong"`), requiring higher `MaxAnswerTokens` (`800–1000`) than non-reasoning models.
+
+
+## Day 2 — 2026-11-20 (Azure AI Search behind `IDocumentVectorStore`, Eval & Migration Drill)
+- **Goal:** Create `aisearch.bicep` (Basic, `disableLocalAuth: true`, `semanticSearch: 'free'`), enforce least-privilege RBAC (API `Search Index Data Reader`, Functions `Search Index Data Contributor`, deploy-time CLI `Search Service Contributor`), implement `AzureAISearch` provider behind `IDocumentVectorStore` + `AzureLab.SearchTool` re-indexer, run 12-question eval (`pgvector` vs `VectorOnly` vs `Hybrid` vs `HybridSemantic`), run dimension-change + versioned index drill, verify full Azure E2E (`Ai:Enabled=true`), negative-test Search RBAC, and delete Search at EOD.
+- **Decisions:**
+  - **Index creation ownership:** Kept runtime identities (`API`, `Functions`) strictly data-plane; created `AzureLab.SearchTool` for deploy-time schema creation (`ensure-index`), `delete-index`, `alias`, and idempotent `reindex` from `EventDocuments` + `event-docs` blobs.
+  - **Deterministic key:** Switched `SearchChunkDocument.ComputeKey` from Base64Url to 64-char lowercase hex (`Convert.ToHexString(SHA256)`), because Base64Url produces a leading `_` ~1 in 64 hashes which Azure AI Search rejects (`InvalidDocumentKey: Keys cannot start with a leading underscore`).
+  - **Upsert-before-delete replacement:** Since AI Search lacks multi-document ACID transactions, `ReplaceDocumentAsync` checks `sourceVersionUtc` for `Superseded`, upserts new chunks first (zero read-gap), then deletes older-ETag and leftover-index chunk IDs.
+  - **Score normalization across modes:** `VectorOnly` uses raw `[0,1]` score; `Hybrid` normalizes 2-leg RRF by `2/61`; `HybridSemantic` normalizes `RerankerScore / 4.0` (`[0,4] -> [0,1]`).
+  - **Direct versioned index name for least-privilege runtime apps:** Pointed `aiSearchIndexName = 'azurelab-docs-v2'` in Bicep because runtime identities with only `Search Index Data Reader` / `Contributor` (no `Search Service Contributor`) received `404 Index not found` when resolving the alias name.
+  - **CI-only app deployments going forward:** Manual Windows zip deployments caused two avoidable outages today; always deploy via GitHub Actions `apps.yml`.
+- **Commands / Key Evidence:**
+  - Provisioned `srch-azurelab-dev-cin-jyqvnq` at **10:06 IST**; deleted at **~15:45 IST** (~6 SU-hours ≈ **\$0.61**).
+  - `AzureLab.SearchTool reindex` Run 1 & Run 2 both produced `stored=1 (2 chunks), failed=0` (idempotent).
+  - Attempting to delete `azurelab-docs-v1` while aliased by `azurelab-docs` -> `400 OperationNotAllowed` (alias delete guard).
+  - Attempting to change `embedding` dimensions (`768 -> 1536`) on `azurelab-docs-768` -> `400 OperationNotAllowed` (`CannotChangeExistingField: "Existing field 'embedding' cannot be changed."`). Solved via side-by-side `azurelab-docs-v2` + alias flip + deleting `-v1`.
+  - **12-question eval (`handbook-eval.json`):**
+    - `pgvector-local`: 12/12 pass, `sourceHitRate=1.0`, `avgSearchMs=47` (4–9 ms warm), `avgGenerateMs=10,756`, `4,061 in / 258 out` tokens.
+    - `search-VectorOnly`: 12/12 pass, `sourceHitRate=1.0`, `avgSearchMs=2,016` (50–89 ms warm), `avgGenerateMs=3,508`, `5,002 in / 3,200 out` tokens (all 3 unanswerable Qs called LLM).
+    - `search-Hybrid`: 11/12 pass, `sourceHitRate=1.0`, `avgSearchMs=433` (53–145 ms warm), `avgGenerateMs=3,771`, `5,002 in / 3,480 out` tokens (RRF scores are rank-based so all 3 unanswerable Qs scored `0.51–1.0` and called LLM).
+    - `search-HybridSemantic`: 11/12 pass, `sourceHitRate=0.889` (paraphrase Q9 scored `0.40` vs `0.45` threshold), `avgSearchMs=461` (62–129 ms warm), **`avgGenerateMs=1,903`**, **`2,340 in / 1,493 out` tokens (-53% token cost!)** because the semantic L2 reranker dropped all 3 unanswerable Qs (`0.44`, `0.35`, `0.15`) to `NoRelevantContext` before calling OpenAI.
+  - **Azure E2E (`Ai:Enabled=true`):** Unenrolled user -> `403 Forbidden`; enrolled user on `e78db890-e326-4461-ace6-a48f272c654f` -> `200 OK`, grounded 14-day refund answer + citation (`similarity: 0.794`).
+  - **Negative RBAC test:** Deleted `Search Index Data Reader` from API MI -> failed at **`t+0s`** (`Azure.RequestFailedException: Status: 403 (Forbidden)`). Restored via Bicep, then deleted Search & set `Ai:Enabled=false` (`what-if` = 0 drift).
+- **Mistakes & Gaps Identified (Learn-From-This):**
+  1. **Manual Windows ZIP deployments (`Compress-Archive` / `tar -C .` / `[ZipFile]::CreateFromDirectory`):**
+     - `Compress-Archive -Path ./publish/func/*` skipped dot-prefixed `.azurefunctions/` -> Functions returned `404`.
+     - `tar -a -c -f ... -C ./publish/func .` prefixed entries with `./` -> Functions returned `503`.
+     - `Compress-Archive` on `api.zip` wrote Windows backslashes (`runtimes\unix\lib\...`), causing Linux `WEBSITE_RUN_FROM_PACKAGE=1` to fail with `FileNotFoundException: Microsoft.Data.SqlClient`.
+     - **Fix:** Never do manual Windows zip deploys when a working Linux CI pipeline (`apps.yml`) exists.
+  2. **Base64Url document keys in Azure AI Search:** Base64Url includes `_` and `-`, and Azure AI Search forbids document keys starting with a leading underscore (`400 InvalidDocumentKey` on ~1/64 chunks). Use lowercase hex (`Convert.ToHexString(SHA256)`) or prefix keys with a letter.
+  3. **`Azure.Search.Documents` `11.7.0` SDK vs Index Aliases:** `SearchAlias` / `CreateOrUpdateAliasAsync` is only in preview SDKs, not GA `11.7.0`. Used the GA REST API (`PUT /aliases('{name}')?api-version=2026-04-01`) with a `DefaultAzureCredential` Bearer token (`https://search.azure.com/.default`).
+  4. **Index Alias resolution under least-privilege `Search Index Data Reader`:** Querying an alias name (`azurelab-docs`) worked locally under Dev User (`Search Service Contributor` + `Index Data Contributor`) but returned `404 Index not found` under API MI (`Search Index Data Reader` only). Pointing `Ai__VectorStore__AzureAISearch__IndexName` to the concrete versioned index (`azurelab-docs-v2`) preserved strict least privilege.
+  5. **Thresholding on RRF scores (`Hybrid` mode):** RRF scores depend only on rank (`1/(60+rank)`), so even completely off-topic queries (`"What is the capital of France?"`) get rank #1 in one leg (`0.51` normalized). Only threshold on cosine similarity (`VectorOnly`) or Semantic L2 `RerankerScore` (`HybridSemantic`).
+  6. **AI Search vs OpenAI RBAC revocation latency:** While Azure OpenAI cached removed RBAC roles for >5 minutes on Day 1, Azure AI Search enforced `Search Index Data Reader` removal at **`t+0s`** (`403 Forbidden`).
