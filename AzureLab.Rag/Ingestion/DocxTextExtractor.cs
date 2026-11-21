@@ -1,25 +1,26 @@
-﻿using System.Text;
+using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace AzureLab.Rag.Ingestion;
 
-internal sealed class DocxTextExtractor : IDocumentTextExtractor
+public sealed class DocxTextExtractor : IDocumentTextExtractor
 {
     public bool CanHandle(string extension) => extension.Equals(".docx", StringComparison.OrdinalIgnoreCase);
 
-    public string ExtractText(Stream content)
+    public Task<DocumentExtractionResult> ExtractTextAsync(Stream content, string extension, CancellationToken ct = default)
     {
         try
         {
+            ct.ThrowIfCancellationRequested();
             using var doc = WordprocessingDocument.Open(content, false);
             var body = doc.MainDocumentPart?.Document?.Body;
-            if (body is null) return "";
+            if (body is null) return Task.FromResult(new DocumentExtractionResult("", 0));
 
             var sb = new StringBuilder();
             foreach (var paragraph in body.Descendants<Paragraph>())   // includes table cells
                 sb.Append(paragraph.InnerText).Append("\n\n");
-            return sb.ToString();
+            return Task.FromResult(new DocumentExtractionResult(sb.ToString(), 1));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

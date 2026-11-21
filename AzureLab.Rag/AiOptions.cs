@@ -3,6 +3,7 @@ namespace AzureLab.Rag;
 public enum AiProvider { Unspecified = 0, Ollama, AzureOpenAI }
 public enum VectorStoreProvider { Unspecified = 0, Postgres, AzureAISearch }
 public enum AzureAiSearchMode { VectorOnly = 0, Hybrid, HybridSemantic }
+public enum DocumentExtractorProvider { Local = 0, Azure }
 
 public sealed class AiOptions
 {
@@ -23,6 +24,7 @@ public sealed class AiOptions
     public IngestionOptions Ingestion { get; set; } = new();   // inside AiOptions
     public QueryOptions Query { get; set; } = new();           // inside AiOptions
     public ContentSafetyOptions ContentSafety { get; set; } = new();
+    public DocumentIntelligenceOptions DocumentIntelligence { get; set; } = new();
 }
 
 public sealed class ChatModelOptions
@@ -92,4 +94,13 @@ public sealed class ContentSafetyOptions
     public bool FailClosedOnInput { get; set; } = true;
     public bool FailClosedOnDocuments { get; set; } = true;
     public bool FailClosedOnOutput { get; set; } = false;
+}
+
+public sealed class DocumentIntelligenceOptions
+{
+    public DocumentExtractorProvider Provider { get; set; } = DocumentExtractorProvider.Local;
+    public string Endpoint { get; set; } = "";
+    public string ModelId { get; set; } = "prebuilt-layout";
+    public int TimeoutSeconds { get; set; } = 120; // must stay below host.json maxAutoLockRenewalDuration (300s)
+    public int PollIntervalMs { get; set; } = 1000;
 }
