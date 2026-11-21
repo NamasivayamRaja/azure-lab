@@ -64,6 +64,7 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddScoped<IRedeemStatusReader, EfRedeemStatusReader>();
 builder.Services.AddScoped<IEventDocumentCatalog, EfEventDocumentCatalog>();
 builder.Services.AddScoped<IEventPassageSearch, RagPassageSearch>();
+builder.Services.AddScoped<IAssistantSafetyGate, AssistantSafetyGateAdapter>();
 builder.Services.AddScoped<AssistantService>();
 builder.Services.AddScoped<IRedeemProposals, EfRedeemProposals>();
 builder.Services.AddScoped<ProposalConfirmationService>();
@@ -120,11 +121,12 @@ var otelBuilder = builder.Services.AddOpenTelemetry()
     .WithTracing(t =>
     {
         t.AddSource(RagTelemetry.Name)
+            .AddSource(AssistantTelemetry.Name)
             .AddSource("Azure.Messaging.ServiceBus.*")
             .AddAspNetCoreInstrumentation();
         if (builder.Environment.IsDevelopment()) t.AddConsoleExporter();
     })
-    .WithMetrics(m => m.AddMeter(RagTelemetry.Name));                      // read locally with dotnet-counters
+    .WithMetrics(m => m.AddMeter(RagTelemetry.Name).AddMeter(AssistantTelemetry.Name));                      // read locally with dotnet-counters
 
 if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
 {

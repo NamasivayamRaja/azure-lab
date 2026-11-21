@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
 namespace AzureLab.Rag;
@@ -18,6 +18,12 @@ public static class RagTelemetry
     public static readonly Counter<long> Tokens = Meter.CreateCounter<long>("rag.tokens");
     public static readonly Counter<long> AskOutcomes = Meter.CreateCounter<long>("rag.ask.outcomes");
     public static readonly Counter<long> IngestOutcomes = Meter.CreateCounter<long>("rag.ingest.outcomes");
+    public static readonly Counter<long> SafetyDecisions = Meter.CreateCounter<long>("rag.safety.decisions");
+    public static readonly Histogram<double> SafetyMs = Meter.CreateHistogram<double>("rag.safety.duration", "ms");
+    public static readonly Histogram<double> CostUsd = Meter.CreateHistogram<double>("rag.cost.usd", "USD");
+
+    public static double EstimateCostUsd(long inputTokens, long outputTokens, double inputPer1M, double outputPer1M) =>
+        Math.Round((inputTokens * inputPer1M + outputTokens * outputPer1M) / 1_000_000.0, 6);
 
     public static KeyValuePair<string, object?> Tag(string key, object? value) => new(key, value);
 }

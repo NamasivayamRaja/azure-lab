@@ -31,15 +31,17 @@ internal sealed class MeteredChatClient(IChatClient inner) : DelegatingChatClien
 }
 
 public sealed class AssistantService(
-    IChatClient chat,                       // the existing raw Ollama client: not wrapped, not replaced, not disposed
+    IChatClient chat,                       // the existing raw client: not wrapped, not replaced, not disposed
     IRedeemStatusReader redeems,
     IEventDocumentCatalog documents,
     IEventPassageSearch search,
     IRedeemProposals proposals,
     ToolLimits limits,
-    ILoggerFactory loggerFactory)
+    ILoggerFactory loggerFactory,
+    IAssistantSafetyGate? safetyGate = null)
 {
     public const string Fallback = "I couldn't complete that request with the tools available.";
+    public const string SafetyRefusal = "I can't process that request.";
 
     public const string SystemPrompt = """
         You are an assistant for one event. You can use tools to look things up.
@@ -60,6 +62,20 @@ public sealed class AssistantService(
         var sw = Stopwatch.StartNew();
         using var activity = AssistantTelemetry.Source.StartActivity("assistant.request");
         activity?.SetTag("correlation.id", caller.CorrelationId);
+
+        if (safetyGate is not null)
+        {
+            var inputCheck = await safetyGate.CheckInputAsync(message, ct);
+            if (inputCheck.UnavailableReason is not null)
+                throw new AssistantUnavailableException($"safety_gate_input:{inputCheck.UnavailableReason}");
+            if (inputCheck.Blocked)
+            {
+                AssistantTelemetry.Requests.Add(1, AssistantTelemetry.Tag("outcome", "BlockedBySafety"));
+                activity?.SetTag("assistant.outcome", "BlockedBySafety");
+                _log.LogWarning("assistant outcome=BlockedBySafety stage=input correlation={CorrelationId}", caller.CorrelationId);
+                return new AssistantResult("BlockedBySafety", SafetyRefusal, [], sw.ElapsedMilliseconds, 0, 0, []);
+            }
+        }
 
         var state = new AssistantRunState();
         var tools = new AssistantTools(caller, redeems, documents, search, limits, state, proposals, message);
@@ -146,6 +162,18 @@ public sealed class AssistantService(
 
         // Fail closed: anything other than a clean answer returns fixed text, never the model's partial output.
         if (outcome != "Answered") answer = Fallback;
+        else if (safetyGate is not null && !string.IsNullOrWhiteSpace(answer))
+        {
+            var outCheck = await safetyGate.CheckOutputAsync(answer, ct);
+            if (outCheck.UnavailableReason is not null)
+                throw Fail($"safety_gate_output:{outCheck.UnavailableReason}", null);
+            if (outCheck.Blocked)
+            {
+                outcome = "BlockedBySafety";
+                answer = SafetyRefusal;
+                _log.LogWarning("assistant outcome=BlockedBySafety stage=output correlation={CorrelationId}", caller.CorrelationId);
+            }
+        }
 
         var input = response.Usage?.InputTokenCount;
         var output = response.Usage?.OutputTokenCount;

@@ -36,20 +36,78 @@ public sealed class EfEventDocumentCatalog(AppDbContext db) : IEventDocumentCata
     }
 }
 
-/// <summary>Retrieval only (no generation). Reuses ITextEmbedder, IDocumentVectorStore and the existing Ai:Query settings.</summary>
+/// <summary>Retrieval only (no generation). Reuses ITextEmbedder, IDocumentVectorStore, IContentSafetyGate and Ai:Query settings.</summary>
 public sealed class RagPassageSearch(
-    ITextEmbedder embedder, IDocumentVectorStore store, IOptions<AiOptions> options) : IEventPassageSearch
+    ITextEmbedder embedder,
+    IDocumentVectorStore store,
+    IContentSafetyGate safetyGate,
+    IOptions<AiOptions> options,
+    ILogger<RagPassageSearch> logger) : IEventPassageSearch
 {
     public async Task<IReadOnlyList<DocumentPassage>> SearchAsync(
         Guid eventId, string query, int maxPassages, CancellationToken ct)
     {
         var q = options.Value.Query;
+        var cs = options.Value.ContentSafety;
         var vector = await embedder.EmbedQueryAsync(query, ct);
         var hits = await store.SearchAsync(eventId, vector, q.TopK, ct, query);   // EventId filter enforced in store
 
-        return hits.Where(h => h.Similarity >= q.MinSimilarity)
-                   .Take(maxPassages)
-                   .Select(h => new DocumentPassage(Path.GetFileName(h.BlobName), h.ChunkIndex, Math.Round(h.Similarity, 3), h.Content))
-                   .ToList();
+        var selected = hits.Where(h => h.Similarity >= q.MinSimilarity)
+                           .Take(maxPassages)
+                           .ToList();
+
+        if (cs.Enabled && selected.Count > 0)
+        {
+            var shield = await safetyGate.ShieldAsync(null, selected.Select(h => h.Content).ToList(), ct);
+            if (!shield.WasEvaluated)
+            {
+                if (cs.FailClosedOnDocuments)
+                    throw new HttpRequestException($"Content Safety document shield failed: {shield.ErrorReason}");
+            }
+            else if (shield.AnyDocumentAttackDetected)
+            {
+                var attacked = shield.AttackedDocumentIndexes.ToHashSet();
+                logger.LogWarning("assistant_passage_attack dropped={Dropped} total={Total} latencyMs={Ms}",
+                    attacked.Count, selected.Count, shield.LatencyMs);
+                selected = selected.Where((_, idx) => !attacked.Contains(idx)).ToList();
+            }
+        }
+
+        return selected
+            .Select(h => new DocumentPassage(Path.GetFileName(h.BlobName), h.ChunkIndex, Math.Round(h.Similarity, 3), h.Content))
+            .ToList();
+    }
+}
+
+public sealed class AssistantSafetyGateAdapter(
+    IContentSafetyGate safetyGate,
+    IOptions<AiOptions> options) : IAssistantSafetyGate
+{
+    public async Task<AssistantSafetyCheck> CheckInputAsync(string userMessage, CancellationToken ct)
+    {
+        var cs = options.Value.ContentSafety;
+        if (!cs.Enabled) return new AssistantSafetyCheck(false);
+
+        var decision = await safetyGate.ShieldAsync(userMessage, Array.Empty<string>(), ct);
+        if (!decision.WasEvaluated)
+            return cs.FailClosedOnInput
+                ? new AssistantSafetyCheck(false, decision.ErrorReason ?? "unavailable")
+                : new AssistantSafetyCheck(false);
+
+        return new AssistantSafetyCheck(decision.UserPromptAttackDetected);
+    }
+
+    public async Task<AssistantSafetyCheck> CheckOutputAsync(string answer, CancellationToken ct)
+    {
+        var cs = options.Value.ContentSafety;
+        if (!cs.Enabled) return new AssistantSafetyCheck(false);
+
+        var decision = await safetyGate.ModerateTextAsync(answer, ct);
+        if (!decision.WasEvaluated)
+            return cs.FailClosedOnOutput
+                ? new AssistantSafetyCheck(false, decision.ErrorReason ?? "unavailable")
+                : new AssistantSafetyCheck(false);
+
+        return new AssistantSafetyCheck(decision.Blocked);
     }
 }
