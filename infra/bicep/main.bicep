@@ -140,6 +140,18 @@ param searchDevUserObjectId string = ''
 param aiEnabled bool = false
 param aiSearchIndexName string = 'azurelab-docs'
 param aiSearchMode string = 'HybridSemantic'
+
+// ---------- Azure AI Content Safety (Week 2, Day 3 — southindia for Prompt Shields support) ----------
+param deployContentSafety bool = false
+param contentSafetyLocation string = openAiLocation
+param contentSafetyRegionShort string = openAiRegionShort
+@allowed([
+  'F0'
+  'S0'
+])
+param contentSafetySkuName string = 'S0'
+@description('Optional Entra User object ID granted Cognitive Services User for local keyless Prompt Shields evaluation.')
+param contentSafetyDevUserObjectId string = ''
 // ---------- Naming convention ----------
 // Pattern: <type-abbrev>-<workload>-<component>-<env>-<region>[-<suffix>]
 // Suffix = 6 chars derived from the RG id: stable across redeploys, unique across tenants.
@@ -161,6 +173,7 @@ var names = {
   sqlDatabase: 'sqldb-${baseName}'
   openAi: 'oai-${workload}-${envName}-${openAiRegionShort}-${suffix}' // 2-64, globally unique customSubDomainName
   aiSearch: 'srch-${baseName}-${suffix}'                              // 2-60, lowercase/digits/hyphens, globally unique
+  contentSafety: 'cs-${workload}-${envName}-${contentSafetyRegionShort}-${suffix}' // 2-64, globally unique customSubDomainName
 }
 
 // Deterministic from the server name, so the apps can be wired without depending on the sql module
@@ -220,6 +233,8 @@ module appService 'modules/appservice.bicep' = {
     aiSearchEndpoint: aiSearch.?outputs.endpoint ?? ''
     aiSearchIndexName: aiSearchIndexName
     aiSearchMode: aiSearchMode
+    contentSafetyEnabled: deployContentSafety
+    contentSafetyEndpoint: contentSafety.?outputs.endpoint ?? ''
   }
 }
 
@@ -301,6 +316,16 @@ module aiSearch 'modules/aisearch.bicep' = if (deploySearch) {
   }
 }
 
+module contentSafety 'modules/contentsafety.bicep' = if (deployContentSafety) {
+  name: 'contentsafety'
+  params: {
+    name: names.contentSafety
+    location: contentSafetyLocation
+    tags: tags
+    skuName: contentSafetySkuName
+  }
+}
+
 module roleAssignments 'modules/roleassignments.bicep' = {
   name: 'roleassignments'
   params: {
@@ -320,6 +345,9 @@ module roleAssignments 'modules/roleassignments.bicep' = {
     deploySearch: deploySearch
     searchServiceName: aiSearch.?outputs.name ?? ''
     searchDevUserObjectId: searchDevUserObjectId
+    deployContentSafety: deployContentSafety
+    contentSafetyAccountName: contentSafety.?outputs.name ?? ''
+    contentSafetyDevUserObjectId: contentSafetyDevUserObjectId
   }
 }
 
@@ -363,6 +391,8 @@ module alerts 'modules/alerts.bicep' = {
     functionAppName: names.functionApp
     appInsightsName: monitoring.outputs.appInsightsName
     workspaceId: monitoring.outputs.workspaceId
+    deployOpenAi: deployOpenAi
+    openAiAccountName: openAi.?outputs.name ?? ''
   }
   dependsOn: [
     appService
@@ -386,3 +416,5 @@ output openAiChatDeployment string = openAi.?outputs.chatDeploymentName ?? ''
 output openAiEmbeddingDeployment string = openAi.?outputs.embeddingDeploymentName ?? ''
 output aiSearchName string = aiSearch.?outputs.name ?? ''
 output aiSearchEndpoint string = aiSearch.?outputs.endpoint ?? ''
+output contentSafetyName string = contentSafety.?outputs.name ?? ''
+output contentSafetyEndpoint string = contentSafety.?outputs.endpoint ?? ''

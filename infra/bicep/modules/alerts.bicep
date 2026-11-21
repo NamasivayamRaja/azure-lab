@@ -8,6 +8,8 @@ param apiHostName string
 param functionAppName string
 param appInsightsName string
 param workspaceId string
+param deployOpenAi bool = false
+param openAiAccountName string = ''
 
 resource serviceBus 'Microsoft.ServiceBus/namespaces@2026-01-01' existing = {
   name: serviceBusName
@@ -19,6 +21,10 @@ resource apiApp 'Microsoft.Web/sites@2024-11-01' existing = {
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
+}
+
+resource openAi 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
+  name: deployOpenAi ? openAiAccountName : 'placeholder-openai'
 }
 
 resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
@@ -378,5 +384,50 @@ resource functionFailuresAlert 'Microsoft.Insights/scheduledQueryRules@2023-03-1
         actionGroup.id
       ]
     }
+  }
+}
+
+// Week 2, Day 3: Alert on Azure OpenAI HTTP 429 throttling bursts (TPM exhaustion).
+resource openAi429Alert 'Microsoft.Insights/metricAlerts@2018-03-01' = if (deployOpenAi && !empty(openAiAccountName)) {
+  name: 'alert-openai-http-429'
+  location: 'global'
+  tags: tags
+  properties: {
+    description: 'Runbook: Azure OpenAI returned >5 HTTP 429s in 5m. Check TPM quota utilization, per-user rate limits, retry/backoff logs, or raise deployment capacity.'
+    severity: 2
+    enabled: true
+    scopes: [
+      openAi.id
+    ]
+    evaluationFrequency: 'PT1M'
+    windowSize: 'PT5M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'OpenAiHttp429'
+          metricName: 'AzureOpenAIRequests'
+          metricNamespace: 'Microsoft.CognitiveServices/accounts'
+          timeAggregation: 'Total'
+          operator: 'GreaterThan'
+          threshold: 5
+          criterionType: 'StaticThresholdCriterion'
+          dimensions: [
+            {
+              name: 'StatusCode'
+              operator: 'Include'
+              values: [
+                '429'
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    actions: [
+      {
+        actionGroupId: actionGroup.id
+      }
+    ]
   }
 }

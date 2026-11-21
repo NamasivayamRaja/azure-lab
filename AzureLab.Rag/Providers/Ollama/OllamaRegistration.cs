@@ -66,14 +66,20 @@ internal static class OllamaRegistration
         {
             var o = sp.GetRequiredService<IOptions<AiOptions>>().Value;
             var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient(ChatClientName);
-            return new OllamaApiClient(http, o.Chat.Model);
+            return ((IChatClient)new OllamaApiClient(http, o.Chat.Model))
+                .AsBuilder()
+                .UseOpenTelemetry(sourceName: RagTelemetry.Name, configure: cfg => cfg.EnableSensitiveData = false)
+                .Build(sp);
         });
 
         services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
         {
             var o = sp.GetRequiredService<IOptions<AiOptions>>().Value;
             var http = sp.GetRequiredService<IHttpClientFactory>().CreateClient(EmbeddingClientName);
-            return new OllamaApiClient(http, o.Embedding.Model);
+            return ((IEmbeddingGenerator<string, Embedding<float>>)new OllamaApiClient(http, o.Embedding.Model))
+                .AsBuilder()
+                .UseOpenTelemetry(sourceName: RagTelemetry.Name, configure: cfg => cfg.EnableSensitiveData = false)
+                .Build(sp);
         });
 
         return services;
