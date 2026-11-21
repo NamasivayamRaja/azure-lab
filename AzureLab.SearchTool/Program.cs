@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Azure;
@@ -9,12 +10,14 @@ using AzureLab.Data;
 using AzureLab.Rag;
 using AzureLab.Rag.Ingestion;
 using AzureLab.Rag.Providers.AzureAISearch;
+using AzureLab.Rag.Providers.DocumentIntelligence;
 using AzureLab.SearchTool;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
@@ -33,6 +36,136 @@ var baseConfig = new ConfigurationBuilder()
     .AddUserSecrets<Program>(optional: true)
     .AddEnvironmentVariables()
     .Build();
+
+if (command == "compare-extract")
+{
+    var files = args.Skip(1).Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+    if (files.Length == 0)
+    {
+        Console.Error.WriteLine("Usage: compare-extract <file1> [file2 ...]");
+        return 2;
+    }
+
+    var diEndpoint = baseConfig["Ai:DocumentIntelligence:Endpoint"];
+    if (string.IsNullOrWhiteSpace(diEndpoint) || !Uri.TryCreate(diEndpoint, UriKind.Absolute, out _))
+    {
+        Console.Error.WriteLine("Missing or invalid Ai:DocumentIntelligence:Endpoint.");
+        return 2;
+    }
+
+    var cred = new DefaultAzureCredential();
+    using var http = new HttpClient();
+    var localExtractors = new IDocumentTextExtractor[] { new PdfTextExtractor(), new DocxTextExtractor() };
+
+    AzureDocumentIntelligenceExtractor MakeAzure(string modelId) =>
+        new(http, cred, Options.Create(new AiOptions
+        {
+            DocumentIntelligence = new DocumentIntelligenceOptions
+            {
+                Provider = DocumentExtractorProvider.Azure,
+                Endpoint = diEndpoint,
+                ModelId = modelId,
+                TimeoutSeconds = 120,
+                PollIntervalMs = 1000
+            }
+        }), NullLogger<AzureDocumentIntelligenceExtractor>.Instance);
+
+    var azRead = MakeAzure("prebuilt-read");
+    var azLayout = MakeAzure("prebuilt-layout");
+
+    Console.WriteLine("| File | Extractor | Pages | Chars | Latency (ms) | Est. Cost (USD) | Status |");
+    Console.WriteLine("|---|---|---:|---:|---:|---:|---|");
+
+    var snippets = new List<(string File, string LocalText, string LayoutText)>();
+
+    foreach (var path in files)
+    {
+        if (!File.Exists(path))
+        {
+            Console.Error.WriteLine($"File not found: {path}");
+            return 2;
+        }
+
+        var name = Path.GetFileName(path);
+        var ext = Path.GetExtension(path);
+
+        // 1) Local
+        var local = localExtractors.FirstOrDefault(e => e.CanHandle(ext));
+        string localText = "";
+        if (local is null)
+        {
+            Console.WriteLine($"| `{name}` | Local (PdfPig/OpenXml) | 0 | 0 | 0 | $0.0000 | Skipped (unsupported `{ext}`) |");
+        }
+        else
+        {
+            var sw = Stopwatch.StartNew();
+            try
+            {
+                await using var fs = File.OpenRead(path);
+                var r = await local.ExtractTextAsync(fs, ext);
+                sw.Stop();
+                localText = r.Text.Trim();
+                var status = localText.Length == 0 ? "Empty (no text layer)" : "OK";
+                Console.WriteLine($"| `{name}` | Local (PdfPig/OpenXml) | {r.PageCount} | {localText.Length} | {sw.ElapsedMilliseconds} | $0.0000 | {status} |");
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                Console.WriteLine($"| `{name}` | Local (PdfPig/OpenXml) | 0 | 0 | {sw.ElapsedMilliseconds} | $0.0000 | Error: {ex.GetType().Name} |");
+            }
+        }
+
+        // 2) Azure prebuilt-read ($1.50 / 1K pages = $0.0015/page)
+        {
+            var sw = Stopwatch.StartNew();
+            try
+            {
+                await using var fs = File.OpenRead(path);
+                var r = await azRead.ExtractTextAsync(fs, ext);
+                sw.Stop();
+                Console.WriteLine($"| `{name}` | Azure `prebuilt-read` | {r.PageCount} | {r.Text.Trim().Length} | {sw.ElapsedMilliseconds} | ${r.PageCount * 0.0015:F4} | OK |");
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                Console.WriteLine($"| `{name}` | Azure `prebuilt-read` | 0 | 0 | {sw.ElapsedMilliseconds} | $0.0000 | Error: {ex.Message} |");
+            }
+        }
+
+        // 3) Azure prebuilt-layout ($10.00 / 1K pages = $0.0100/page)
+        string layoutText = "";
+        {
+            var sw = Stopwatch.StartNew();
+            try
+            {
+                await using var fs = File.OpenRead(path);
+                var r = await azLayout.ExtractTextAsync(fs, ext);
+                sw.Stop();
+                layoutText = r.Text.Trim();
+                Console.WriteLine($"| `{name}` | Azure `prebuilt-layout` | {r.PageCount} | {layoutText.Length} | {sw.ElapsedMilliseconds} | ${r.PageCount * 0.0100:F4} | OK |");
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                Console.WriteLine($"| `{name}` | Azure `prebuilt-layout` | 0 | 0 | {sw.ElapsedMilliseconds} | $0.0000 | Error: {ex.Message} |");
+            }
+        }
+
+        snippets.Add((name, localText, layoutText));
+    }
+
+    Console.WriteLine();
+    Console.WriteLine("=== Extraction Snippets (first 400 chars) ===");
+    foreach (var (file, loc, lay) in snippets)
+    {
+        Console.WriteLine($"\n--- {file} [Local] ---");
+        Console.WriteLine(loc.Length == 0 ? "(empty / skipped)" : loc[..Math.Min(400, loc.Length)]);
+        Console.WriteLine($"--- {file} [Azure prebuilt-layout] ---");
+        Console.WriteLine(lay.Length == 0 ? "(empty / error)" : lay[..Math.Min(400, lay.Length)]);
+    }
+
+    return 0;
+}
 
 var endpoint = baseConfig["Ai:VectorStore:AzureAISearch:Endpoint"];
 if (string.IsNullOrWhiteSpace(endpoint) || !Uri.TryCreate(endpoint, UriKind.Absolute, out var searchUri))

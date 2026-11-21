@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using AzureLab.Rag.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -22,7 +22,7 @@ public sealed class DocumentIngestionService(
         var ext = Path.GetExtension(req.BlobName);
         var extractor = extractors.FirstOrDefault(e => e.CanHandle(ext));
         if (extractor is null)
-            return new(IngestionOutcome.SkippedUnsupportedType, Detail: $"unsupported '{ext}' (image/OCR out of scope)");
+            return new(IngestionOutcome.SkippedUnsupportedType, Detail: $"unsupported '{ext}'");
 
         if (req.EventId is not { } eventId || eventId == Guid.Empty)
             return new(IngestionOutcome.SkippedNoEventId, Detail: "blob is not under an {eventId}/ path");
@@ -32,9 +32,17 @@ public sealed class DocumentIngestionService(
         if (content is null)
             return new(IngestionOutcome.SkippedBlobChanged, Detail: "blob deleted or replaced by a newer version");
 
-        // 3) Extract + chunk (deterministic: failures are permanent).
-        var text = extractor.ExtractText(content);
-        var pieces = TextChunker.Chunk(text, o.ChunkSizeChars, o.ChunkOverlapChars);
+        // 3) Extract + chunk (permanent failures throw PermanentIngestionException; transient 429/5xx/timeouts escape for SB retry).
+        DocumentExtractionResult extracted;
+        using (var extractSpan = RagTelemetry.Source.StartActivity("rag.ingest.extract"))
+        {
+            extractSpan?.SetTag("rag.file_ext", ext);
+            extracted = await extractor.ExtractTextAsync(content, ext, ct);
+            extractSpan?.SetTag("rag.pages", extracted.PageCount);
+            extractSpan?.SetTag("rag.extracted_chars", extracted.Text.Length);
+        }
+
+        var pieces = TextChunker.Chunk(extracted.Text, o.ChunkSizeChars, o.ChunkOverlapChars);
         if (pieces.Count == 0)
             return new(IngestionOutcome.SkippedNoText, Detail: "no extractable text (scanned document?)");
         if (pieces.Count > o.MaxChunksPerDocument)

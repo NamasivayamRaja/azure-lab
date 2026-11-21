@@ -1,4 +1,4 @@
-﻿namespace AzureLab.Rag.Ingestion;
+namespace AzureLab.Rag.Ingestion;
 
 public sealed record IngestionRequest(
     string DocumentKey, string BlobName, string ETag, Guid? EventId, DateTimeOffset SourceVersionUtc);
@@ -24,9 +24,11 @@ public interface IDocumentContentSource
     Task<Stream?> OpenAsync(string blobName, string etag, CancellationToken ct);
 }
 
+public sealed record DocumentExtractionResult(string Text, int PageCount);
+
 public interface IDocumentTextExtractor
 {
     bool CanHandle(string extension);
-    /// <exception cref="PermanentIngestionException">Document cannot be read.</exception>
-    string ExtractText(Stream content);
+    /// <exception cref="PermanentIngestionException">Document cannot be read (corrupt/unsupported/encrypted).</exception>
+    Task<DocumentExtractionResult> ExtractTextAsync(Stream content, string extension, CancellationToken ct = default);
 }

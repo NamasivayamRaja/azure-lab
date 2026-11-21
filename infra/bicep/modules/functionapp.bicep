@@ -22,6 +22,7 @@ param openAiEmbeddingDimensions int = 1536
 param aiSearchEndpoint string = ''
 param aiSearchIndexName string = 'azurelab-docs'
 param aiSearchMode string = 'HybridSemantic'
+param docIntelligenceEndpoint string = ''
 
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
@@ -77,6 +78,14 @@ var aiSettings = aiEnabled && !empty(openAiEndpoint) && !empty(aiSearchEndpoint)
       Ai__Enabled: 'false'
     }
 
+var docIntelligenceSettings = !empty(docIntelligenceEndpoint)
+  ? {
+      Ai__DocumentIntelligence__Provider: 'Azure'
+      Ai__DocumentIntelligence__Endpoint: docIntelligenceEndpoint
+      Ai__DocumentIntelligence__ModelId: 'prebuilt-layout'
+    }
+  : {}
+
 var baseFunctionSettings = union({
   FUNCTIONS_EXTENSION_VERSION: '~4'
   FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
@@ -87,7 +96,7 @@ var baseFunctionSettings = union({
   EventDocsStorage__blobServiceUri: blobServiceUri
   APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
   WEBSITE_RUN_FROM_PACKAGE: '1'
-}, aiSettings, sqlSettings)
+}, aiSettings, docIntelligenceSettings, sqlSettings)
 
 resource functionSettings 'Microsoft.Web/sites/config@2024-11-01' = {
   parent: functionApp

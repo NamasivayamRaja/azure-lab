@@ -152,6 +152,16 @@ param contentSafetyRegionShort string = openAiRegionShort
 param contentSafetySkuName string = 'S0'
 @description('Optional Entra User object ID granted Cognitive Services User for local keyless Prompt Shields evaluation.')
 param contentSafetyDevUserObjectId string = ''
+
+// ---------- Azure AI Document Intelligence (Week 2, Day 4 — centralindia) ----------
+param deployDocumentIntelligence bool = false
+@allowed([
+  'F0'
+  'S0'
+])
+param docIntelligenceSkuName string = 'S0'
+@description('Optional Entra User object ID granted Cognitive Services User for local keyless Document Intelligence evaluation.')
+param docIntelligenceDevUserObjectId string = ''
 // ---------- Naming convention ----------
 // Pattern: <type-abbrev>-<workload>-<component>-<env>-<region>[-<suffix>]
 // Suffix = 6 chars derived from the RG id: stable across redeploys, unique across tenants.
@@ -174,6 +184,7 @@ var names = {
   openAi: 'oai-${workload}-${envName}-${openAiRegionShort}-${suffix}' // 2-64, globally unique customSubDomainName
   aiSearch: 'srch-${baseName}-${suffix}'                              // 2-60, lowercase/digits/hyphens, globally unique
   contentSafety: 'cs-${workload}-${envName}-${contentSafetyRegionShort}-${suffix}' // 2-64, globally unique customSubDomainName
+  docIntelligence: 'di-${baseName}-${suffix}'                                      // 2-64, globally unique customSubDomainName
 }
 
 // Deterministic from the server name, so the apps can be wired without depending on the sql module
@@ -290,6 +301,7 @@ module functionApp 'modules/functionapp.bicep' = {
     aiSearchEndpoint: aiSearch.?outputs.endpoint ?? ''
     aiSearchIndexName: aiSearchIndexName
     aiSearchMode: aiSearchMode
+    docIntelligenceEndpoint: docIntelligence.?outputs.endpoint ?? ''
   }
 }
 
@@ -326,6 +338,16 @@ module contentSafety 'modules/contentsafety.bicep' = if (deployContentSafety) {
   }
 }
 
+module docIntelligence 'modules/docintelligence.bicep' = if (deployDocumentIntelligence) {
+  name: 'docintelligence'
+  params: {
+    name: names.docIntelligence
+    location: location
+    tags: tags
+    skuName: docIntelligenceSkuName
+  }
+}
+
 module roleAssignments 'modules/roleassignments.bicep' = {
   name: 'roleassignments'
   params: {
@@ -348,6 +370,9 @@ module roleAssignments 'modules/roleassignments.bicep' = {
     deployContentSafety: deployContentSafety
     contentSafetyAccountName: contentSafety.?outputs.name ?? ''
     contentSafetyDevUserObjectId: contentSafetyDevUserObjectId
+    deployDocumentIntelligence: deployDocumentIntelligence
+    docIntelligenceAccountName: docIntelligence.?outputs.name ?? ''
+    docIntelligenceDevUserObjectId: docIntelligenceDevUserObjectId
   }
 }
 
@@ -418,3 +443,5 @@ output aiSearchName string = aiSearch.?outputs.name ?? ''
 output aiSearchEndpoint string = aiSearch.?outputs.endpoint ?? ''
 output contentSafetyName string = contentSafety.?outputs.name ?? ''
 output contentSafetyEndpoint string = contentSafety.?outputs.endpoint ?? ''
+output docIntelligenceName string = docIntelligence.?outputs.name ?? ''
+output docIntelligenceEndpoint string = docIntelligence.?outputs.endpoint ?? ''
