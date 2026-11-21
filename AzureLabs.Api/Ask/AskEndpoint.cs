@@ -73,9 +73,9 @@ public static class AskEndpoint
             return Results.Ok(env.IsDevelopment() ? result : result with { Diagnostics = null });
         }
         catch (Exception ex) when (!ct.IsCancellationRequested &&
-            ex is HttpRequestException or TimeoutException or TaskCanceledException or DbException or Polly.ExecutionRejectedException)
+            ex is HttpRequestException or TimeoutException or TaskCanceledException or DbException or Polly.ExecutionRejectedException or AzureLab.Rag.Abstractions.ContentSafetyUnavailableException)
         {
-            logger.LogError(ex, "Ask failed: model or vector store unavailable ({ExceptionType})", ex.GetType().Name);
+            logger.LogError(ex, "Ask failed: model, vector store, or safety gate unavailable ({ExceptionType})", ex.GetType().Name);
             http.Response.Headers.RetryAfter = "10";
             return Results.Problem(statusCode: 503, title: "The AI service is temporarily unavailable.");
         }

@@ -1,6 +1,9 @@
+using Azure.Core;
+using Azure.Identity;
 using AzureLab.Rag.Abstractions;
 using AzureLab.Rag.Providers.AzureAISearch;
 using AzureLab.Rag.Providers.AzureOpenAI;
+using AzureLab.Rag.Providers.ContentSafety;
 using AzureLab.Rag.Providers.Ollama;
 using AzureLab.Rag.Providers.Postgres;
 using Microsoft.Extensions.AI;
@@ -28,6 +31,7 @@ public static class RagRegistration
             services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(new DisabledEmbeddingGenerator());
             services.AddSingleton<ITextEmbedder, TextEmbedder>();
             services.AddSingleton<IDocumentVectorStore>(new DisabledDocumentVectorStore());
+            services.AddSingleton<IContentSafetyGate, NoOpContentSafetyGate>();
             return services;
         }
 
@@ -58,6 +62,17 @@ public static class RagRegistration
                 break;
             default:
                 break; // AiOptionsValidator reports a clear startup error via ValidateOnStart()
+        }
+
+        var contentSafetyEnabled = configuration.GetValue<bool>($"{AiOptions.SectionName}:ContentSafety:Enabled");
+        if (contentSafetyEnabled)
+        {
+            services.AddSingleton<TokenCredential>(_ => new DefaultAzureCredential());
+            services.AddHttpClient<IContentSafetyGate, AzureContentSafetyGate>();
+        }
+        else
+        {
+            services.AddSingleton<IContentSafetyGate, NoOpContentSafetyGate>();
         }
 
         return services;

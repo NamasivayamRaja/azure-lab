@@ -75,6 +75,18 @@ internal sealed class AiOptionsValidator : IValidateOptions<AiOptions>
         if (q.MaxQuestionChars is < 1 or > 2000) errors.Add("Ai:Query:MaxQuestionChars must be between 1 and 2000.");
         if (q.MaxAnswerTokens is < 16 or > 2000) errors.Add("Ai:Query:MaxAnswerTokens must be between 16 and 2000.");
 
+        var cs = o.ContentSafety;
+        if (cs.Enabled)
+        {
+            if (!Uri.TryCreate(cs.Endpoint, UriKind.Absolute, out var csUri) ||
+                !string.Equals(csUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                errors.Add("Ai:ContentSafety:Endpoint must be an absolute HTTPS URI when Ai:ContentSafety:Enabled is true.");
+            if (cs.TimeoutSeconds is < 1 or > 30)
+                errors.Add("Ai:ContentSafety:TimeoutSeconds must be between 1 and 30.");
+            if (cs.SeverityThreshold is not (2 or 4 or 6))
+                errors.Add("Ai:ContentSafety:SeverityThreshold must be 2, 4, or 6.");
+        }
+
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
     }
 }

@@ -34,7 +34,7 @@ public static class AssistantEvalEndpoint
     {
         app.MapGet("/dev/assistant/eval", async (
             string? models, string? prompts, int? repeats, bool? verbose, string? label,
-            IOptions<AiOptions> ai, ToolLimits limits, IHostEnvironment env, CancellationToken ct) =>
+            IChatClient diChat, IOptions<AiOptions> ai, ToolLimits limits, IHostEnvironment env, CancellationToken ct) =>
         {
             var path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "infra", "local", "eval", "assistant-eval.json"));
             if (!File.Exists(path)) return Results.NotFound($"Eval file not found: {path}");
@@ -59,20 +59,35 @@ public static class AssistantEvalEndpoint
                         continue;
                     }
 
-                    using var http = new HttpClient
+                    HttpClient? http = null;
+                    IChatClient client;
+                    if (ai.Value.Provider == AiProvider.AzureOpenAI)
                     {
-                        BaseAddress = new Uri(ai.Value.Ollama.Endpoint),
-                        Timeout = TimeSpan.FromSeconds(ai.Value.Chat.TimeoutSeconds)
-                    };
-                    IChatClient client = new OllamaSharp.OllamaApiClient(http, model);
+                        client = diChat;
+                    }
+                    else
+                    {
+                        http = new HttpClient
+                        {
+                            BaseAddress = new Uri(ai.Value.Ollama.Endpoint),
+                            Timeout = TimeSpan.FromSeconds(ai.Value.Chat.TimeoutSeconds)
+                        };
+                        client = new OllamaSharp.OllamaApiClient(http, model);
+                    }
+                    using var _ = http;
+
                     var options = new ChatOptions
                     {
-                        Temperature = 0f, MaxOutputTokens = 300, AllowMultipleToolCalls = false, Tools = tools
+                        Temperature = 0f,
+                        MaxOutputTokens = Math.Max(300, ai.Value.Query.MaxAnswerTokens),
+                        AllowMultipleToolCalls = false,
+                        Tools = tools
                     };
 
                     var verdicts = new Dictionary<string, int>();
                     var times = new List<long>();
                     long inputTokens = 0;
+                    long outputTokensTotal = 0;
                     var passed = 0;
                     var total = 0;
                     string? unavailable = null;
@@ -90,12 +105,17 @@ public static class AssistantEvalEndpoint
                             };
 
                             var sw = Stopwatch.StartNew();
-                            ChatResponse resp;
+                            ChatResponse? resp = null;
+                            string? filteredNote = null;
                             try
                             {
                                 resp = await client.GetResponseAsync(msgs, options, ct);
                             }
                             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                            catch (Exception ex) when (ex.Message.Contains("content_filter", StringComparison.OrdinalIgnoreCase))
+                            {
+                                filteredNote = "blocked by AOAI content_filter";
+                            }
                             catch (Exception ex)
                             {
                                 unavailable = $"{ex.GetType().Name}: {ex.Message}";   // e.g. model not installed
@@ -103,15 +123,26 @@ public static class AssistantEvalEndpoint
                             }
                             sw.Stop();
 
-                            var calls = resp.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().ToList();
-                            var text = resp.Text?.Trim() ?? "";
-                            var (verdict, detail) = Score(c, calls, text, resp.Usage?.OutputTokenCount);
+                            string verdict;
+                            string detail;
+                            if (filteredNote is not null)
+                            {
+                                verdict = c.NoToolOk ? "pass" : "filtered";
+                                detail = filteredNote;
+                            }
+                            else
+                            {
+                                var calls = resp!.Messages.SelectMany(m => m.Contents).OfType<FunctionCallContent>().ToList();
+                                var text = resp.Text?.Trim() ?? "";
+                                (verdict, detail) = Score(c, calls, text, resp.Usage?.OutputTokenCount);
+                                if (resp.Usage?.InputTokenCount is { } it) inputTokens += it;
+                                if (resp.Usage?.OutputTokenCount is { } ot) outputTokensTotal += ot;
+                            }
 
                             total++;
                             if (verdict == "pass") passed++;
                             verdicts[verdict] = verdicts.GetValueOrDefault(verdict) + 1;
                             times.Add(sw.ElapsedMilliseconds);
-                            if (resp.Usage?.InputTokenCount is { } it) inputTokens += it;
 
                             if (verdict != "pass" || verbose == true)
                                 rows.Add(new { model, prompt = promptName, c.Id, c.Category, verdict, detail, ms = sw.ElapsedMilliseconds });
@@ -130,7 +161,8 @@ public static class AssistantEvalEndpoint
                         verdicts,
                         avgMs = times.Count == 0 ? 0 : (long)times.Average(),
                         p95Ms = times.Count == 0 ? 0 : times[Math.Min(times.Count - 1, (int)Math.Ceiling(times.Count * 0.95) - 1)],
-                        avgInputTokens = total == 0 ? 0 : inputTokens / total
+                        avgInputTokens = total == 0 ? 0 : inputTokens / total,
+                        avgOutputTokens = total == 0 ? 0 : outputTokensTotal / total
                     });
                 }
             }

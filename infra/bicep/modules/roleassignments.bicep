@@ -24,6 +24,11 @@ param searchServiceName string = ''
 @description('Optional Entra User object ID granted Search Service Contributor + Search Index Data Contributor for deploy-time index schema & re-index CLI.')
 param searchDevUserObjectId string = ''
 
+param deployContentSafety bool = false
+param contentSafetyAccountName string = ''
+@description('Optional Entra User object ID granted Cognitive Services User for local keyless Prompt Shields evaluation.')
+param contentSafetyDevUserObjectId string = ''
+
 // Built-in role definition IDs. Cannot be validated offline: confirm in cloud week 1
 // with: az role definition list --name "<role name>"
 var roleIds = {
@@ -36,6 +41,7 @@ var roleIds = {
   searchIndexDataContributor: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')
   searchIndexDataReader: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '1407120a-92aa-4202-b7e9-c0e197c71c8f')
   searchServiceContributor: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')
+  cognitiveServicesUser: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
 }
 
 var apiPrincipalIds = grantStagingSlotRoles ? [apiPrincipalId, apiStagingPrincipalId] : [apiPrincipalId]
@@ -335,6 +341,35 @@ resource devUserSearchIndexContributor 'Microsoft.Authorization/roleAssignments@
   properties: {
     roleDefinitionId: roleIds.searchIndexDataContributor
     principalId: searchDevUserObjectId
+    principalType: 'User'
+  }
+}
+
+// ---------- Azure AI Content Safety: Cognitive Services User (API + optional dev user; Worker & Functions get none) ----------
+resource contentSafety 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
+  name: deployContentSafety ? contentSafetyAccountName : 'placeholder-contentsafety'
+}
+
+// API calls Prompt Shields + text moderation at query time.
+resource apiContentSafetyUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for pid in apiPrincipalIds: if (deployContentSafety) {
+    name: guid(contentSafety.id, pid, roleIds.cognitiveServicesUser)
+    scope: contentSafety
+    properties: {
+      roleDefinitionId: roleIds.cognitiveServicesUser
+      principalId: pid
+      principalType: 'ServicePrincipal'
+    }
+  }
+]
+
+// Local developer identity for keyless Prompt Shields evals in dev.
+resource devUserContentSafetyUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployContentSafety && !empty(contentSafetyDevUserObjectId)) {
+  name: guid(contentSafety.id, contentSafetyDevUserObjectId, roleIds.cognitiveServicesUser)
+  scope: contentSafety
+  properties: {
+    roleDefinitionId: roleIds.cognitiveServicesUser
+    principalId: contentSafetyDevUserObjectId
     principalType: 'User'
   }
 }
