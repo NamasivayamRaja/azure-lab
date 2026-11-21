@@ -117,3 +117,8 @@ param contentSafetyLocation = 'southindia'
 param contentSafetyRegionShort = 'sin'
 param contentSafetySkuName = 'S0'
 param contentSafetyDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
+
+// ---------- Azure AI Document Intelligence (Week 2, Day 4 — S0 in centralindia) ----------
+param deployDocumentIntelligence = true
+param docIntelligenceSkuName = 'S0'
+param docIntelligenceDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')

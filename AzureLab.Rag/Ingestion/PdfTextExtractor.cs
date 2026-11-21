@@ -1,25 +1,29 @@
-﻿using System.Text;
+using System.Text;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
 namespace AzureLab.Rag.Ingestion;
 
-internal sealed class PdfTextExtractor : IDocumentTextExtractor
+public sealed class PdfTextExtractor : IDocumentTextExtractor
 {
     public bool CanHandle(string extension) => extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
 
-    public string ExtractText(Stream content)
+    public Task<DocumentExtractionResult> ExtractTextAsync(Stream content, string extension, CancellationToken ct = default)
     {
         try
         {
+            ct.ThrowIfCancellationRequested();
             using var pdf = PdfDocument.Open(content);
             var sb = new StringBuilder();
+            var pageCount = 0;
             foreach (var page in pdf.GetPages())
             {
+                ct.ThrowIfCancellationRequested();
+                pageCount++;
                 sb.AppendLine(ContentOrderTextExtractor.GetText(page));
                 sb.AppendLine();
             }
-            return sb.ToString();
+            return Task.FromResult(new DocumentExtractionResult(sb.ToString(), pageCount));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -87,6 +87,20 @@ internal sealed class AiOptionsValidator : IValidateOptions<AiOptions>
                 errors.Add("Ai:ContentSafety:SeverityThreshold must be 2, 4, or 6.");
         }
 
+        var di = o.DocumentIntelligence;
+        if (di.Provider == DocumentExtractorProvider.Azure)
+        {
+            if (!Uri.TryCreate(di.Endpoint, UriKind.Absolute, out var diUri) ||
+                !string.Equals(diUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                errors.Add("Ai:DocumentIntelligence:Endpoint must be an absolute HTTPS URI when Provider is Azure.");
+            if (string.IsNullOrWhiteSpace(di.ModelId))
+                errors.Add("Ai:DocumentIntelligence:ModelId is required when Provider is Azure.");
+            if (di.TimeoutSeconds is < 10 or > 240)
+                errors.Add("Ai:DocumentIntelligence:TimeoutSeconds must be between 10 and 240 (below the 300s Service Bus maxAutoLockRenewalDuration).");
+            if (di.PollIntervalMs is < 250 or > 10000)
+                errors.Add("Ai:DocumentIntelligence:PollIntervalMs must be between 250 and 10000.");
+        }
+
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
     }
 }
