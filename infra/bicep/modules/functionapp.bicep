@@ -24,6 +24,10 @@ param aiSearchIndexName string = 'azurelab-docs'
 param aiSearchMode string = 'HybridSemantic'
 param docIntelligenceEndpoint string = ''
 
+// ---------- VNet Integration (Week 2, Day 5) ----------
+param vnetIntegrationSubnetId string = ''
+param vnetRouteAllEnabled bool = true
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
 }
@@ -40,6 +44,12 @@ resource functionApp 'Microsoft.Web/sites@2024-11-01' = {
     serverFarmId: planId
     httpsOnly: true
     clientAffinityEnabled: false
+    virtualNetworkSubnetId: empty(vnetIntegrationSubnetId) ? null : vnetIntegrationSubnetId
+    outboundVnetRouting: !empty(vnetIntegrationSubnetId)
+      ? {
+          applicationTraffic: vnetRouteAllEnabled
+        }
+      : null
     siteConfig: {
       linuxFxVersion: 'DOTNET-ISOLATED|10.0'
       alwaysOn: true // the polling blob trigger needs the host running
@@ -136,6 +146,12 @@ resource functionStaging 'Microsoft.Web/sites/slots@2024-11-01' = {
     serverFarmId: planId
     httpsOnly: true
     clientAffinityEnabled: false
+    virtualNetworkSubnetId: empty(vnetIntegrationSubnetId) ? null : vnetIntegrationSubnetId
+    outboundVnetRouting: !empty(vnetIntegrationSubnetId)
+      ? {
+          applicationTraffic: vnetRouteAllEnabled
+        }
+      : null
     siteConfig: {
       linuxFxVersion: 'DOTNET-ISOLATED|10.0'
       alwaysOn: true

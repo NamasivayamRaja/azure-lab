@@ -64,6 +64,12 @@ param freeLimitExhaustionBehavior string = 'BillOverUsage'
 @description('Public IPv4 addresses allowed through the server firewall (single-IP rules). NOT the 0.0.0.0 "Allow Azure services" rule.')
 param allowedIps array = []
 
+@allowed([
+  'Enabled'
+  'Disabled'
+])
+param publicNetworkAccess string = 'Enabled'
+
 resource server 'Microsoft.Sql/servers@2024-05-01-preview' = {
   name: serverName
   location: location
@@ -71,7 +77,7 @@ resource server 'Microsoft.Sql/servers@2024-05-01-preview' = {
   properties: {
     version: '12.0'
     minimalTlsVersion: '1.2'
-    publicNetworkAccess: 'Enabled' // restricted with a Private Endpoint in cloud week 2
+    publicNetworkAccess: publicNetworkAccess // restricted with a Private Endpoint in cloud week 2
     administrators: {
       administratorType: 'ActiveDirectory'
       azureADOnlyAuthentication: true // no SQL logins, no passwords

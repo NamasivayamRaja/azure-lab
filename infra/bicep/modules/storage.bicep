@@ -21,6 +21,12 @@ param blobSoftDeleteDays int = 7
 @description('Days after creation before quarantined files are deleted.')
 param quarantineRetentionDays int = 7
 
+@allowed([
+  'Enabled'
+  'Disabled'
+])
+param publicNetworkAccess string = 'Enabled'
+
 var quarantineContainer = 'event-docs-quarantine'
 
 // Names are fixed by the code: API option, blob trigger path, quarantine constant.
@@ -45,9 +51,9 @@ resource storage 'Microsoft.Storage/storageAccounts@2026-04-01' = {
     allowBlobPublicAccess: false
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
-    publicNetworkAccess: 'Enabled'       // locked down with Private Endpoint in cloud week 2
+    publicNetworkAccess: publicNetworkAccess       // locked down with Private Endpoint in cloud week 2
     networkAcls: {
-      defaultAction: 'Allow'
+      defaultAction: publicNetworkAccess == 'Disabled' ? 'Deny' : 'Allow'
       bypass: 'AzureServices'
     }
   }
