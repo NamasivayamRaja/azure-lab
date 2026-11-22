@@ -112,3 +112,24 @@
 - **Comparison & E2E Evidence:** Added `compare-extract` to `AzureLab.SearchTool` and 3 fixtures (`scanned-schedule.pdf`, `badge-policy.png`, `pricing-table.docx`). Local returned 0 chars on scanned PDF, skipped PNG, and flattened table cells; Azure `prebuilt-layout` extracted 100% OCR (~4.5–4.7s/page warm) and preserved `<table><tr><td>` structure. Deployed via GitHub Actions, uploaded `badge-policy.png` keyless to `event-docs`, and verified live `POST /ask` answered `"The airport shuttle departs from Gate 4 [1]."` (`similarity: 0.68`).
 - **Notes:** Wrote `docs/ai-notes.md` covering Foundry Agent Service vs `AssistantService`, MCP & security, Foundry IQ agentic retrieval, RAG vs fine-tuning vs prompting, semantic caching, PII data-flow (Azure AI Language), and the 8-service Azure AI selection table.
 - **EOD Cleanup:** Delete `srch-azurelab-dev-cin-jyqvnq` (~\$0.101/hr) to stop hourly Search charges; keep `di-azurelab-dev-cin-jyqvnq`, `cs-azurelab-dev-sin-jyqvnq`, and `oai-azurelab-dev-sin-jyqvnq` (\$0/hr idle).
+
+
+---
+
+## Day 5 — VNet, Private Endpoints, Private DNS & Network Break Drills (2026-11-22)
+
+- **Infra:** Created `infra/bicep/modules/network.bicep` (`vnet-azurelab-dev-cin` `10.10.0.0/22`, `snet-appsvc-int` `10.10.0.0/26`, `snet-pe` `10.10.1.0/25` with `privateEndpointNetworkPolicies: Enabled`, `snet-aci` `10.10.1.128/25`, `nsg-snet-appsvc-int`, `nsg-snet-pe`, 6 Private DNS zones + VNet links) and `infra/bicep/modules/privateendpoint.bicep`. Wired Regional VNet Integration (`virtualNetworkSubnetId` + `outboundVnetRouting.applicationTraffic: true`) on all 5 site/slot targets (`api`, `api/staging`, `worker`, `func`, `func/staging`).
+- **One-by-one PE + Lockdown Rollout (all verified private `10.10.1.x` BEFORE disabling public access):**
+  1. **Storage (`stazurelabdevjyqvnq`):** `blob` (`10.10.1.5`), `queue` (`10.10.1.4`), `table` (`10.10.1.6`) — no `file` PE needed (Dedicated `P0v3` + `RUN_FROM_PACKAGE=1` + shared key off). `publicNetworkAccess: Disabled` verified laptop `403`, API `bulk-player-enrollment` `200`, API `event-docs` `403` (container RBAC).
+  2. **Azure SQL (`sql-azurelab-dev-cin-jyqvnq`):** `sqlServer` (`10.10.1.7`), `connectionType: Default` (Proxy `1433`). Removed all 44 `sqlAllowedIps` (closes Week 1 rebuild gap 1) and set `publicNetworkAccess: Disabled`. Laptop `Test-NetConnection -Port 1433` still connected to shared public gateway `20.192.43.160`, then Entra `SqlConnection` failed (`Deny Public Network Access`). Chose **Option A** (VNet container/runner in `snet-aci`) over temporary public window and `deploymentScripts` (requires `allowSharedKeyAccess: true`).
+  3. **Azure OpenAI (`oai-azurelab-dev-sin-jyqvnq`):** Cross-region PE (`10.10.1.8` in `centralindia` → `southindia` over Microsoft backbone). `publicNetworkAccess: Disabled` broke laptop PowerShell and Azure AI Foundry Playground (`403`); API SSH returned `HTTP 200 remote=10.10.1.8`.
+  4. **Azure AI Search (`srch-azurelab-dev-cin-jyqvnq`):** Recreated Basic (`expires: 2026-11-23`) + PE (`10.10.1.9`, `searchService`). Ran `AzureLab.SearchTool ensure-index` while enabled, then set `publicNetworkAccess: 'disabled'` (laptop `403`, API SSH `200`).
+- **Break Drills & Operational Lessons (logged in `docs/network-constraints.md`):**
+  1. `Microsoft.Web/sites@2024-11-01` deprecated `vnetRouteAllEnabled` → silently stayed `False` until switched to `outboundVnetRouting: { applicationTraffic: true }`.
+  2. Unlinked `privatelink.blob.core.windows.net` → fell back to public `20.60.84.33` → misleading `HTTP 403` (`DNS` layer).
+  3. Deleted `allow-appsvc-sql` on `nsg-snet-pe` → resolved `10.10.1.7` → silent TCP timeout (`Filtering` layer).
+  4. Deleted OpenAI PE `dns-zone-group` while zone stayed linked → `NXDOMAIN` with zero public fallback (`DNS` authoritative zone blackhole).
+  5. Set Search PE connection to `Rejected` → resolved `10.10.1.9` → silent `Connection timed out` (`HTTP 000`, `Service setting`); terminal state requiring PE delete + Bicep recreate.
+  6. Functions polling Blob Trigger stalled after earlier Storage `403` break drill; `az functionapp restart` recovered it immediately.
+  7. `AzureLab.DlqTool` failed with `SocketException (10061)` because User Secrets `ServiceBus:ConnectionString` (`localhost:5672`) takes precedence over `FullyQualifiedNamespace`.
+- **E2E Proof:** Redeem E2E (`status: 2`) and Private Ingestion + RAG `/ask` E2E (`PUT 201 remote=10.10.1.5` → `"The airport shuttle departs from Gate 4 [1]."`) passed across all 4 private services. Kept Search + 6 PEs running for Day 6 (~\$6.36/day total; delete Day 6 EOD).

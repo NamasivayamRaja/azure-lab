@@ -46,6 +46,10 @@ param aiSearchMode string = 'HybridSemantic'
 param contentSafetyEnabled bool = false
 param contentSafetyEndpoint string = ''
 
+// ---------- VNet Integration (Week 2, Day 5) ----------
+param vnetIntegrationSubnetId string = ''
+param vnetRouteAllEnabled bool = true
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
 }
@@ -263,6 +267,12 @@ resource apiApp 'Microsoft.Web/sites@2024-11-01' = {
     serverFarmId: appPlan.id
     httpsOnly: true
     clientAffinityEnabled: false // stateless API: no ARR affinity cookie
+    virtualNetworkSubnetId: empty(vnetIntegrationSubnetId) ? null : vnetIntegrationSubnetId
+    outboundVnetRouting: !empty(vnetIntegrationSubnetId)
+      ? {
+          applicationTraffic: vnetRouteAllEnabled
+        }
+      : null
     siteConfig: {
       linuxFxVersion: linuxFxVersion
       alwaysOn: true
@@ -308,6 +318,12 @@ resource apiStaging 'Microsoft.Web/sites/slots@2024-11-01' = {
     serverFarmId: appPlan.id
     httpsOnly: true
     clientAffinityEnabled: false
+    virtualNetworkSubnetId: empty(vnetIntegrationSubnetId) ? null : vnetIntegrationSubnetId
+    outboundVnetRouting: !empty(vnetIntegrationSubnetId)
+      ? {
+          applicationTraffic: vnetRouteAllEnabled
+        }
+      : null
     siteConfig: {
       linuxFxVersion: linuxFxVersion
       alwaysOn: true
@@ -343,6 +359,12 @@ resource workerApp 'Microsoft.Web/sites@2024-11-01' = {
     serverFarmId: appPlan.id
     httpsOnly: true
     clientAffinityEnabled: false
+    virtualNetworkSubnetId: empty(vnetIntegrationSubnetId) ? null : vnetIntegrationSubnetId
+    outboundVnetRouting: !empty(vnetIntegrationSubnetId)
+      ? {
+          applicationTraffic: vnetRouteAllEnabled
+        }
+      : null
     siteConfig: {
       linuxFxVersion: linuxFxVersion
       alwaysOn: true // without it the app is unloaded when idle and the consumers stop

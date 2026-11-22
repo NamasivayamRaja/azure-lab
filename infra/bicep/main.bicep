@@ -162,6 +162,36 @@ param deployDocumentIntelligence bool = false
 param docIntelligenceSkuName string = 'S0'
 @description('Optional Entra User object ID granted Cognitive Services User for local keyless Document Intelligence evaluation.')
 param docIntelligenceDevUserObjectId string = ''
+
+// ---------- Networking & Private Endpoints (Week 2, Day 5) ----------
+param deployNetwork bool = false
+param vnetRouteAllEnabled bool = true
+param privateEndpointExpires string = ''
+param deployStoragePrivateEndpoints bool = false
+@allowed([
+  'Enabled'
+  'Disabled'
+])
+param storagePublicNetworkAccess string = 'Enabled'
+param deploySqlPrivateEndpoint bool = false
+@allowed([
+  'Enabled'
+  'Disabled'
+])
+param sqlPublicNetworkAccess string = 'Enabled'
+param deployOpenAiPrivateEndpoint bool = false
+@allowed([
+  'Enabled'
+  'Disabled'
+])
+param openAiPublicNetworkAccess string = 'Enabled'
+param deploySearchPrivateEndpoint bool = false
+@allowed([
+  'enabled'
+  'disabled'
+])
+param searchPublicNetworkAccess string = 'enabled'
+
 // ---------- Naming convention ----------
 // Pattern: <type-abbrev>-<workload>-<component>-<env>-<region>[-<suffix>]
 // Suffix = 6 chars derived from the RG id: stable across redeploys, unique across tenants.
@@ -185,7 +215,26 @@ var names = {
   aiSearch: 'srch-${baseName}-${suffix}'                              // 2-60, lowercase/digits/hyphens, globally unique
   contentSafety: 'cs-${workload}-${envName}-${contentSafetyRegionShort}-${suffix}' // 2-64, globally unique customSubDomainName
   docIntelligence: 'di-${baseName}-${suffix}'                                      // 2-64, globally unique customSubDomainName
+  vnet: 'vnet-${baseName}'
 }
+
+var storageBlobDnsZone = 'privatelink.blob.${environment().suffixes.storage}'
+var storageQueueDnsZone = 'privatelink.queue.${environment().suffixes.storage}'
+var storageTableDnsZone = 'privatelink.table.${environment().suffixes.storage}'
+var sqlPrivateDnsZone = 'privatelink${environment().suffixes.sqlServerHostname}'
+// environment().suffixes does not expose an Azure OpenAI DNS suffix.
+#disable-next-line no-hardcoded-env-urls
+var openAiPrivateDnsZone = 'privatelink.openai.azure.com'
+// environment().suffixes does not expose an Azure AI Search DNS suffix.
+#disable-next-line no-hardcoded-env-urls
+var searchPrivateDnsZone = 'privatelink.search.windows.net'
+var storageDnsZones = deployStoragePrivateEndpoints
+  ? [storageBlobDnsZone, storageQueueDnsZone, storageTableDnsZone]
+  : []
+var sqlDnsZones = deploySql && deploySqlPrivateEndpoint ? [sqlPrivateDnsZone] : []
+var openAiDnsZones = deployOpenAi && deployOpenAiPrivateEndpoint ? [openAiPrivateDnsZone] : []
+var searchDnsZones = deploySearch && deploySearchPrivateEndpoint ? [searchPrivateDnsZone] : []
+var privateDnsZoneNames = concat(storageDnsZones, sqlDnsZones, openAiDnsZones, searchDnsZones)
 
 // Deterministic from the server name, so the apps can be wired without depending on the sql module
 // (the firewall rules read the apps' outbound IPs from a parameter, so there is no dependency cycle).
@@ -200,6 +249,17 @@ var tags = {
 }
 
 // Modules
+module network 'modules/network.bicep' = if (deployNetwork) {
+  name: 'network'
+  params: {
+    vnetName: names.vnet
+    location: location
+    tags: tags
+    privateDnsZoneNames: privateDnsZoneNames
+    expires: privateEndpointExpires
+  }
+}
+
 module storage 'modules/storage.bicep' = {
   name: 'storage'
   params: {
@@ -209,6 +269,7 @@ module storage 'modules/storage.bicep' = {
     skuName: storageSku
     blobSoftDeleteDays: blobSoftDeleteDays
     quarantineRetentionDays: quarantineRetentionDays
+    publicNetworkAccess: storagePublicNetworkAccess
   }
 }
 
@@ -246,6 +307,8 @@ module appService 'modules/appservice.bicep' = {
     aiSearchMode: aiSearchMode
     contentSafetyEnabled: deployContentSafety
     contentSafetyEndpoint: contentSafety.?outputs.endpoint ?? ''
+    vnetIntegrationSubnetId: network.?outputs.appsvcIntSubnetId ?? ''
+    vnetRouteAllEnabled: vnetRouteAllEnabled
   }
 }
 
@@ -268,6 +331,7 @@ module sql 'modules/sql.bicep' = if (deploySql) {
     backupStorageRedundancy: sqlBackupStorageRedundancy
     zoneRedundant: sqlZoneRedundant
     allowedIps: sqlAllowedIps
+    publicNetworkAccess: sqlPublicNetworkAccess
   }
 }
 
@@ -302,6 +366,8 @@ module functionApp 'modules/functionapp.bicep' = {
     aiSearchIndexName: aiSearchIndexName
     aiSearchMode: aiSearchMode
     docIntelligenceEndpoint: docIntelligence.?outputs.endpoint ?? ''
+    vnetIntegrationSubnetId: network.?outputs.appsvcIntSubnetId ?? ''
+    vnetRouteAllEnabled: vnetRouteAllEnabled
   }
 }
 
@@ -313,6 +379,7 @@ module openAi 'modules/openai.bicep' = if (deployOpenAi) {
     tags: tags
     chatCapacity: openAiChatCapacity
     embeddingCapacity: openAiEmbeddingCapacity
+    publicNetworkAccess: openAiPublicNetworkAccess
   }
 }
 
@@ -324,6 +391,7 @@ module aiSearch 'modules/aisearch.bicep' = if (deploySearch) {
     tags: tags
     skuName: searchSkuName
     semanticSearch: searchSemanticSearch
+    publicNetworkAccess: searchPublicNetworkAccess
     expires: searchExpires
   }
 }
@@ -425,6 +493,91 @@ module alerts 'modules/alerts.bicep' = {
   ]
 }
 
+module peStorageBlob 'modules/privateendpoint.bicep' = if (deployNetwork && deployStoragePrivateEndpoints) {
+  name: 'pe-storage-blob'
+  params: {
+    name: 'pe-st-${baseName}-blob'
+    location: location
+    tags: tags
+    subnetId: network!.outputs.peSubnetId
+    privateLinkServiceId: storage.outputs.id
+    groupId: 'blob'
+    privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', storageBlobDnsZone)
+    expires: privateEndpointExpires
+  }
+}
+
+module peStorageQueue 'modules/privateendpoint.bicep' = if (deployNetwork && deployStoragePrivateEndpoints) {
+  name: 'pe-storage-queue'
+  params: {
+    name: 'pe-st-${baseName}-queue'
+    location: location
+    tags: tags
+    subnetId: network!.outputs.peSubnetId
+    privateLinkServiceId: storage.outputs.id
+    groupId: 'queue'
+    privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', storageQueueDnsZone)
+    expires: privateEndpointExpires
+  }
+}
+
+module peStorageTable 'modules/privateendpoint.bicep' = if (deployNetwork && deployStoragePrivateEndpoints) {
+  name: 'pe-storage-table'
+  params: {
+    name: 'pe-st-${baseName}-table'
+    location: location
+    tags: tags
+    subnetId: network!.outputs.peSubnetId
+    privateLinkServiceId: storage.outputs.id
+    groupId: 'table'
+    privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', storageTableDnsZone)
+    expires: privateEndpointExpires
+  }
+}
+
+module peSql 'modules/privateendpoint.bicep' = if (deployNetwork && deploySql && deploySqlPrivateEndpoint) {
+  name: 'pe-sql'
+  params: {
+    name: 'pe-sql-${baseName}'
+    location: location
+    tags: tags
+    subnetId: network!.outputs.peSubnetId
+    privateLinkServiceId: sql!.outputs.id
+    groupId: 'sqlServer'
+    privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', sqlPrivateDnsZone)
+    expires: privateEndpointExpires
+  }
+}
+
+// Cross-region PE: placed in centralindia (VNet region) targeting the OpenAI account in southindia.
+module peOpenAi 'modules/privateendpoint.bicep' = if (deployNetwork && deployOpenAi && deployOpenAiPrivateEndpoint) {
+  name: 'pe-openai'
+  params: {
+    name: 'pe-oai-${baseName}'
+    location: location
+    tags: tags
+    subnetId: network!.outputs.peSubnetId
+    privateLinkServiceId: openAi!.outputs.id
+    groupId: 'account'
+    privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', openAiPrivateDnsZone)
+    expires: privateEndpointExpires
+  }
+}
+
+module peSearch 'modules/privateendpoint.bicep' = if (deployNetwork && deploySearch && deploySearchPrivateEndpoint) {
+  name: 'pe-search'
+  params: {
+    name: 'pe-srch-${baseName}'
+    location: location
+    tags: tags
+    subnetId: network!.outputs.peSubnetId
+    privateLinkServiceId: aiSearch!.outputs.id
+    groupId: 'searchService'
+    privateDnsZoneId: resourceId('Microsoft.Network/privateDnsZones', searchPrivateDnsZone)
+    expires: privateEndpointExpires
+  }
+}
+
 output resourceNames object = names
 output appliedTags object = tags
 output storageBlobServiceUri string = storage.outputs.blobServiceUri
@@ -445,3 +598,4 @@ output contentSafetyName string = contentSafety.?outputs.name ?? ''
 output contentSafetyEndpoint string = contentSafety.?outputs.endpoint ?? ''
 output docIntelligenceName string = docIntelligence.?outputs.name ?? ''
 output docIntelligenceEndpoint string = docIntelligence.?outputs.endpoint ?? ''
+output vnetName string = network.?outputs.vnetName ?? ''
