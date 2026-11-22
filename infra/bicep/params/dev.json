@@ -9,7 +9,7 @@
       "value": "cin"
     },
     "owner": {
-      "value": "unassigned"
+      "value": "ndvd"
     },
     "storageSku": {
       "value": "Standard_LRS"
@@ -48,22 +48,22 @@
       "value": false
     },
     "azureAdTenantId": {
-      "value": ""
+      "value": "25c8edb3-3453-4cff-8b15-1506edfafe4a"
     },
     "azureAdClientId": {
-      "value": ""
+      "value": "dfa89a7d-f9f1-4864-93e6-4cede5d4d3f1"
     },
     "alertEmail": {
-      "value": ""
+      "value": "rajlakshmi1892@gmail.com"
     },
     "deploySql": {
       "value": true
     },
     "sqlAdminLogin": {
-      "value": ""
+      "value": "rajlakshmi1892_gmail.com#EXT#@rajlakshmi1892gmail.onmicrosoft.com"
     },
     "sqlAdminObjectId": {
-      "value": ""
+      "value": "7dc8f76e-242b-4e79-ba58-d2da6bac2cbb"
     },
     "sqlAdminPrincipalType": {
       "value": "User"
@@ -94,38 +94,131 @@
     },
     "sqlAllowedIps": {
       "value": [
-        "135.13.177.151",
-        "135.13.180.237",
-        "20.192.171.20",
-        "20.204.211.52",
-        "20.204.214.217",
-        "20.204.214.68",
-        "20.219.174.118",
-        "20.235.194.47",
-        "20.244.77.107",
-        "4.187.190.117",
-        "4.187.192.56",
-        "4.187.192.83",
-        "4.187.202.192",
-        "4.187.204.15",
-        "4.187.214.53",
-        "4.188.115.70",
-        "4.188.89.53",
-        "4.188.89.72",
-        "4.224.115.37",
-        "4.224.115.87",
-        "4.224.138.26",
-        "4.224.139.74",
-        "4.224.71.1",
-        "4.224.71.224",
-        "4.247.208.118",
-        "4.247.208.154",
-        "4.247.214.195",
-        "4.247.215.225",
-        "4.247.236.85",
-        "98.70.233.34",
-        "98.70.238.182"
+        "135.235.252.23",
+        "20.192.98.161",
+        "20.193.229.53",
+        "20.193.232.42",
+        "20.193.239.122",
+        "20.193.240.182",
+        "20.198.118.232",
+        "20.204.10.63",
+        "20.204.105.172",
+        "20.204.11.162",
+        "20.204.110.167",
+        "20.204.111.176",
+        "20.204.144.238",
+        "20.204.148.42",
+        "20.204.187.145",
+        "20.204.222.100",
+        "20.204.222.102",
+        "20.204.222.116",
+        "20.204.222.124",
+        "20.204.222.129",
+        "20.204.222.130",
+        "20.204.238.157",
+        "20.204.238.159",
+        "20.204.238.18",
+        "20.204.238.251",
+        "20.204.239.171",
+        "20.204.239.74",
+        "20.204.65.82",
+        "20.204.68.117",
+        "4.187.134.248",
+        "4.187.138.65",
+        "4.187.153.9",
+        "4.187.185.72",
+        "4.187.232.178",
+        "4.188.68.72",
+        "4.224.109.147",
+        "4.224.164.142",
+        "4.247.240.182",
+        "40.80.84.70",
+        "40.81.250.84",
+        "52.172.249.184",
+        "52.172.252.64",
+        "52.172.254.209"
       ]
+    },
+    "deployOpenAi": {
+      "value": true
+    },
+    "openAiLocation": {
+      "value": "southindia"
+    },
+    "openAiRegionShort": {
+      "value": "sin"
+    },
+    "openAiChatCapacity": {
+      "value": 10
+    },
+    "openAiEmbeddingCapacity": {
+      "value": 10
+    },
+    "openAiDevUserObjectId": {
+      "value": "7dc8f76e-242b-4e79-ba58-d2da6bac2cbb"
+    },
+    "deploySearch": {
+      "value": true
+    },
+    "searchSkuName": {
+      "value": "basic"
+    },
+    "searchSemanticSearch": {
+      "value": "free"
+    },
+    "searchExpires": {
+      "value": "2026-11-23"
+    },
+    "searchDevUserObjectId": {
+      "value": "7dc8f76e-242b-4e79-ba58-d2da6bac2cbb"
+    },
+    "aiEnabled": {
+      "value": true
+    },
+    "aiSearchIndexName": {
+      "value": "azurelab-docs-v2"
+    },
+    "aiSearchMode": {
+      "value": "HybridSemantic"
+    },
+    "deployContentSafety": {
+      "value": true
+    },
+    "contentSafetyLocation": {
+      "value": "southindia"
+    },
+    "contentSafetyRegionShort": {
+      "value": "sin"
+    },
+    "contentSafetySkuName": {
+      "value": "S0"
+    },
+    "contentSafetyDevUserObjectId": {
+      "value": "7dc8f76e-242b-4e79-ba58-d2da6bac2cbb"
+    },
+    "deployDocumentIntelligence": {
+      "value": true
+    },
+    "docIntelligenceSkuName": {
+      "value": "S0"
+    },
+    "docIntelligenceDevUserObjectId": {
+      "value": "7dc8f76e-242b-4e79-ba58-d2da6bac2cbb"
+    },
+    "deployNetwork": {
+      "value": true
+    },
+    "vnetRouteAllEnabled": {
+      "value": true
+    },
+    "privateEndpointExpires": {
+      "value": "2026-11-23"
+    },
+    "deployStoragePrivateEndpoints": {
+      "value": true
+    },
+    "storagePublicNetworkAccess": {
+      "value": "Enabled"
     }
   }
 }
