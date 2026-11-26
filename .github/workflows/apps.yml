@@ -157,15 +157,15 @@ jobs:
             --resource-group ${{ env.RG_NAME }} \
             --name "$ACI_NAME" \
             --location centralindia \
-            --image mcr.microsoft.com/dotnet/sdk:10.0 \
+            --image mcr.microsoft.com/dotnet/sdk:10.0-noble \
             --os-type Linux \
             --cpu 1 --memory 2 \
             --restart-policy Never \
             --subnet "$SUBNET_ID" \
             --assign-identity "$UAMI_ID" \
-            --environment-variables REPO_URL="$REPO_URL" COMMIT_SHA="${{ github.sha }}" SQL_SERVER="${{ env.SQL_SERVER }}" \
+            --environment-variables REPO_URL="$REPO_URL" COMMIT_SHA="${{ github.sha }}" SQL_SERVER="${{ env.SQL_SERVER }}" SQL_DB="${{ env.SQL_DB }}" AZURE_CLIENT_ID="${{ vars.AZURE_CLIENT_ID }}" \
             --secure-environment-variables SQL_CONN="$CONN_STR" \
-            --command-line "/bin/bash -c 'set -euo pipefail; echo \"=== DNS check ===\"; getent hosts \"\${SQL_SERVER}.database.windows.net\"; git clone --depth 1 \"\$REPO_URL\" /src && cd /src && git fetch --depth 1 origin \"\$COMMIT_SHA\" && git checkout \"\$COMMIT_SHA\"; dotnet tool install --global dotnet-ef --version 10.*; export PATH=\"\$PATH:\$HOME/.dotnet/tools\"; dotnet ef database update --verbose --project AzureLab.Data/AzureLab.Data.csproj --startup-project AzureLabs.Api/AzureLabs.Api.csproj --connection \"\$SQL_CONN\"'" \
+            --command-line "/bin/bash -c 'set -euo pipefail; echo \"=== DNS check ===\"; getent hosts \"\${SQL_SERVER}.database.windows.net\"; apt-get update -qq && apt-get install -y -qq iproute2 tcpdump >/dev/null 2>&1 || true; echo \"=== Interfaces & Routes ===\"; ip link show eth0 || true; ip route show || true; (ip link set dev eth0 mtu 1350 && echo \"MTU_SET_1350\") || echo \"CANNOT_SET_MTU\"; for r in \"10.10.1.0/25\" \"10.10.0.0/22\"; do ip route replace \"\$r\" dev eth0 advmss 1300 2>/dev/null || true; done; ip route show || true; git clone --depth 1 \"\$REPO_URL\" /src && cd /src && git fetch --depth 1 origin \"\$COMMIT_SHA\" && git checkout \"\$COMMIT_SHA\"; dotnet restore AzureLabs.Api/AzureLabs.Api.csproj; dotnet tool install --global dotnet-ef --version 10.*; export PATH=\"\$PATH:\$HOME/.dotnet/tools\"; (tcpdump -nn -i eth0 tcp port 1433 -c 20 >/tmp/tcpdump.log 2>&1 &); sleep 1; C1=\"Server=tcp:\${SQL_SERVER}.database.windows.net,1433;Database=\${SQL_DB};Authentication=Active Directory Managed Identity;User Id=\${AZURE_CLIENT_ID};Encrypt=True;TrustServerCertificate=False;Connection Timeout=60\"; C2=\"Server=tcp:\${SQL_SERVER}.database.windows.net,1433;Database=\${SQL_DB};Authentication=Active Directory Managed Identity;User Id=\${AZURE_CLIENT_ID};Encrypt=True;TrustServerCertificate=True;Connection Timeout=60\"; echo \"=== ATTEMPT 1 (Encrypt=True) ===\"; dotnet ef database update --project AzureLab.Data/AzureLab.Data.csproj --startup-project AzureLabs.Api/AzureLabs.Api.csproj --connection \"\$C1\" || { echo \"=== TCPDUMP AFTER ATTEMPT 1 ===\"; cat /tmp/tcpdump.log || true; echo \"=== ATTEMPT 2 (TrustServerCertificate=True) ===\"; dotnet ef database update --project AzureLab.Data/AzureLab.Data.csproj --startup-project AzureLabs.Api/AzureLabs.Api.csproj --connection \"\$C2\"; }; echo \"=== TCPDUMP FINAL ===\"; cat /tmp/tcpdump.log || true'" \
             --no-wait
 
           for i in $(seq 1 40); do
