@@ -165,7 +165,7 @@ jobs:
             --assign-identity "$UAMI_ID" \
             --environment-variables REPO_URL="$REPO_URL" COMMIT_SHA="${{ github.sha }}" SQL_SERVER="${{ env.SQL_SERVER }}" \
             --secure-environment-variables SQL_CONN="$CONN_STR" \
-            --command-line "/bin/bash -c 'set -euo pipefail; echo \"=== DNS check ===\"; getent hosts \"\${SQL_SERVER}.database.windows.net\"; git clone --depth 1 \"\$REPO_URL\" /src && cd /src && git fetch --depth 1 origin \"\$COMMIT_SHA\" && git checkout \"\$COMMIT_SHA\"; dotnet tool install --global dotnet-ef --version 10.*; export PATH=\"\$PATH:\$HOME/.dotnet/tools\"; dotnet ef database update --verbose --project AzureLab.Data/AzureLab.Data.csproj --startup-project AzureLabs.Api/AzureLabs.Api.csproj --connection \"\$SQL_CONN\"'" \
+            --command-line "/bin/bash -c 'set -euo pipefail; echo \"=== DNS check ===\"; getent hosts \"\${SQL_SERVER}.database.windows.net\"; git clone --depth 1 \"\$REPO_URL\" /src && cd /src && git fetch --depth 1 origin \"\$COMMIT_SHA\" && git checkout \"\$COMMIT_SHA\"; dotnet restore AzureLabs.Api/AzureLabs.Api.csproj; dotnet tool install --global dotnet-ef --version 10.*; export PATH=\"\$PATH:\$HOME/.dotnet/tools\"; dotnet ef database update --verbose --project AzureLab.Data/AzureLab.Data.csproj --startup-project AzureLabs.Api/AzureLabs.Api.csproj --connection \"\$SQL_CONN\"'" \
             --no-wait
 
           for i in $(seq 1 40); do
