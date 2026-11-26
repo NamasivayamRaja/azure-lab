@@ -157,7 +157,7 @@ jobs:
             --resource-group ${{ env.RG_NAME }} \
             --name "$ACI_NAME" \
             --location centralindia \
-            --image mcr.microsoft.com/dotnet/sdk:10.0 \
+            --image mcr.microsoft.com/dotnet/sdk:10.0-noble \
             --os-type Linux \
             --cpu 1 --memory 2 \
             --restart-policy Never \
