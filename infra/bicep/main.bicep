@@ -192,6 +192,19 @@ param deploySearchPrivateEndpoint bool = false
 ])
 param searchPublicNetworkAccess string = 'enabled'
 
+// ---------- API Management (Week 2, Day 6) ----------
+param deployApim bool = false
+@allowed([
+  'BasicV2'
+  'StandardV2'
+])
+param apimSkuName string = 'StandardV2'
+param apimPublisherEmail string = ''
+param apimPublisherName string = 'AzureLab'
+param apimExpires string = ''
+param lockApiToApim bool = false
+param useApimAiGateway bool = false
+
 // ---------- Naming convention ----------
 // Pattern: <type-abbrev>-<workload>-<component>-<env>-<region>[-<suffix>]
 // Suffix = 6 chars derived from the RG id: stable across redeploys, unique across tenants.
@@ -216,6 +229,7 @@ var names = {
   contentSafety: 'cs-${workload}-${envName}-${contentSafetyRegionShort}-${suffix}' // 2-64, globally unique customSubDomainName
   docIntelligence: 'di-${baseName}-${suffix}'                                      // 2-64, globally unique customSubDomainName
   vnet: 'vnet-${baseName}'
+  apim: 'apim-${baseName}-${suffix}'                                               // 1-50, globally unique
 }
 
 var storageBlobDnsZone = 'privatelink.blob.${environment().suffixes.storage}'
@@ -239,6 +253,10 @@ var privateDnsZoneNames = concat(storageDnsZones, sqlDnsZones, openAiDnsZones, s
 // Deterministic from the server name, so the apps can be wired without depending on the sql module
 // (the firewall rules read the apps' outbound IPs from a parameter, so there is no dependency cycle).
 var sqlServerFqdn = '${names.sqlServer}${environment().suffixes.sqlServerHostname}'
+// Deterministic APIM gateway URL avoids a circular dependency (apim -> appService -> apim).
+#disable-next-line no-hardcoded-env-urls
+var apimAiGatewayEndpoint = 'https://${names.apim}.azure-api.net/openai-gw'
+var effectiveOpenAiEndpoint = deployApim && useApimAiGateway ? apimAiGatewayEndpoint : (openAi.?outputs.endpoint ?? '')
 
 // ---------- Tagging convention (applied to every resource in later modules) ----------
 var tags = {
@@ -301,7 +319,7 @@ module appService 'modules/appservice.bicep' = {
     azureAdClientId: azureAdClientId
     appInsightsName: monitoring.outputs.appInsightsName
     aiEnabled: aiEnabled
-    openAiEndpoint: openAi.?outputs.endpoint ?? ''
+    openAiEndpoint: effectiveOpenAiEndpoint
     aiSearchEndpoint: aiSearch.?outputs.endpoint ?? ''
     aiSearchIndexName: aiSearchIndexName
     aiSearchMode: aiSearchMode
@@ -309,6 +327,7 @@ module appService 'modules/appservice.bicep' = {
     contentSafetyEndpoint: contentSafety.?outputs.endpoint ?? ''
     vnetIntegrationSubnetId: network.?outputs.appsvcIntSubnetId ?? ''
     vnetRouteAllEnabled: vnetRouteAllEnabled
+    apiAllowedSubnetId: lockApiToApim && deployApim ? (network.?outputs.apimIntSubnetId ?? '') : ''
   }
 }
 
@@ -361,7 +380,7 @@ module functionApp 'modules/functionapp.bicep' = {
     sqlServerFqdn: deploySql ? sqlServerFqdn : ''
     sqlDatabaseName: names.sqlDatabase
     aiEnabled: aiEnabled
-    openAiEndpoint: openAi.?outputs.endpoint ?? ''
+    openAiEndpoint: effectiveOpenAiEndpoint
     aiSearchEndpoint: aiSearch.?outputs.endpoint ?? ''
     aiSearchIndexName: aiSearchIndexName
     aiSearchMode: aiSearchMode
@@ -416,6 +435,25 @@ module docIntelligence 'modules/docintelligence.bicep' = if (deployDocumentIntel
   }
 }
 
+module apim 'modules/apim.bicep' = if (deployApim) {
+  name: 'apim'
+  params: {
+    name: names.apim
+    location: location
+    tags: tags
+    skuName: apimSkuName
+    publisherEmail: apimPublisherEmail
+    publisherName: apimPublisherName
+    subnetResourceId: network.?outputs.apimIntSubnetId ?? ''
+    apiHostName: appService.outputs.apiDefaultHostName
+    openAiEndpoint: openAi.?outputs.endpoint ?? ''
+    appInsightsName: monitoring.outputs.appInsightsName
+    azureAdTenantId: azureAdTenantId
+    azureAdClientId: azureAdClientId
+    expires: apimExpires
+  }
+}
+
 module roleAssignments 'modules/roleassignments.bicep' = {
   name: 'roleassignments'
   params: {
@@ -441,6 +479,8 @@ module roleAssignments 'modules/roleassignments.bicep' = {
     deployDocumentIntelligence: deployDocumentIntelligence
     docIntelligenceAccountName: docIntelligence.?outputs.name ?? ''
     docIntelligenceDevUserObjectId: docIntelligenceDevUserObjectId
+    deployApim: deployApim
+    apimPrincipalId: apim.?outputs.principalId ?? ''
   }
 }
 
@@ -599,3 +639,5 @@ output contentSafetyEndpoint string = contentSafety.?outputs.endpoint ?? ''
 output docIntelligenceName string = docIntelligence.?outputs.name ?? ''
 output docIntelligenceEndpoint string = docIntelligence.?outputs.endpoint ?? ''
 output vnetName string = network.?outputs.vnetName ?? ''
+output apimName string = apim.?outputs.name ?? ''
+output apimGatewayUrl string = apim.?outputs.gatewayUrl ?? ''

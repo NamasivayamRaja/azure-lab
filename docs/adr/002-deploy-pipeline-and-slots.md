@@ -5,8 +5,8 @@
 
 ## Decision
 1. **Two Workflows with Path Filtering:**
-   - [infra.yml](file:///d:/2026/AzureLabs/.github/workflows/infra.yml): Runs `az bicep build` + `what-if` on PRs and `az deployment group create` on merge to `main`.
-   - [apps.yml](file:///d:/2026/AzureLabs/.github/workflows/apps.yml): Uses `dorny/paths-filter@v3` so `API`, `Worker`, `Functions`, and `EF Migrations` build and deploy only when their code or shared dependencies change.
+   - [infra.yml](../../.github/workflows/infra.yml): Runs `az bicep build` + `what-if` on PRs and `az deployment group create` on merge to `main` (live Azure jobs gated by `vars.AZURE_DEPLOY_ENABLED`).
+   - [apps.yml](../../.github/workflows/apps.yml): Uses `dorny/paths-filter@v3` so `API`, `Worker`, `Functions`, and `EF Migrations` build and deploy only when their code or shared dependencies change (live deploy gated by `vars.AZURE_DEPLOY_ENABLED`).
 2. **Self-Contained `efbundle` Before App Deploys:**
    - Build a Linux self-contained EF Core migration bundle (`efbundle`) in CI.
    - Open a short-lived SQL firewall rule for the GitHub runner IP, execute `efbundle` using the deploy UAMI (`Authentication=Active Directory Default`), and remove the firewall rule in an `if: always()` step before any app code swaps.

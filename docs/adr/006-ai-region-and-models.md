@@ -1,6 +1,6 @@
 # ADR 006: Azure AI Region, Model Selection, and Policy Strategy
 
-- **Status:** Draft (Cloud Week 2, Day 0 Gate — GO)
+- **Status:** Accepted (Validated across Cloud Week 2, Days 0–6)
 - **Context:** The kept Week 1 baseline (`rg-azurelab-ndvd-dev2-cin`) and subscription policy (`allowed-locations-cin`) are locked to `centralindia`. Day 0 read-only quota verification showed `centralindia` has `0` pay-as-you-go Azure OpenAI quota (only `GlobalProvisionedManaged` PTUs, no embeddings), whereas `southindia` and `eastus2` have active pay-per-token chat and embedding quota. Week 2 requires Azure OpenAI, AI Search (Basic + Semantic Ranker), Content Safety (Prompt Shields), Document Intelligence, and Day 5 Private Endpoint isolation within ~\$183.51 remaining Free Trial credit (22 days left).
 
 ## Decision
@@ -26,4 +26,9 @@
 - **Negative / Trade-offs:**
   - `GlobalStandard` (`gpt-5-mini`) allows inference processing outside India (data at rest stays in `southindia`); strict single-region inference compliance would require `Standard` regional quota in a supported region or PTUs.
   - Cross-region OpenAI requires amending `allowed-locations-cin` and adds minor inter-region PE data charges on Day 5.
-  - **Lesson learned (captured in `docs/interview-prep/learning-notes.md`):** Always choose the landing zone primary region against the most constrained *planned* service (AI model quotas), not just Phase 1 compute/data.
+  - **Lesson learned:** Always choose the landing zone primary region against the most constrained *planned* service (AI model quotas), not just Phase 1 compute/data.
+
+## Revisit When
+- Microsoft releases pay-as-you-go (`Standard` or `GlobalStandard`) quota for `gpt-5-mini` and `text-embedding-3-small` in `centralindia` (allowing single-region consolidation).
+- Regulatory compliance mandates strict in-country *inference* processing (requiring migration from `GlobalStandard` to regional `Standard` or `DataZoneStandard` deployments).
+- Sustained token volume exceeds the break-even threshold for Provisioned Throughput Units (`GlobalProvisionedManaged` PTUs).

@@ -50,6 +50,10 @@ param contentSafetyEndpoint string = ''
 param vnetIntegrationSubnetId string = ''
 param vnetRouteAllEnabled bool = true
 
+// ---------- Backend Lock to APIM Subnet (Week 2, Day 6) ----------
+@description('When non-empty, locks the production API slot inbound traffic to this VNet subnet (requires Microsoft.Web service endpoint).')
+param apiAllowedSubnetId string = ''
+
 resource appInsights 'Microsoft.Insights/components@2020-02-02' existing = {
   name: appInsightsName
 }
@@ -280,6 +284,19 @@ resource apiApp 'Microsoft.Web/sites@2024-11-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
+      ipSecurityRestrictionsDefaultAction: empty(apiAllowedSubnetId) ? 'Allow' : 'Deny'
+      scmIpSecurityRestrictionsUseMain: false
+      ipSecurityRestrictions: empty(apiAllowedSubnetId)
+        ? []
+        : [
+            {
+              name: 'AllowApimSubnet'
+              description: 'Allow inbound only from APIM subnet'
+              action: 'Allow'
+              priority: 100
+              vnetSubnetResourceId: apiAllowedSubnetId
+            }
+          ]
     }
   }
 }
@@ -331,6 +348,19 @@ resource apiStaging 'Microsoft.Web/sites/slots@2024-11-01' = {
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true
+      ipSecurityRestrictionsDefaultAction: empty(apiAllowedSubnetId) ? 'Allow' : 'Deny'
+      scmIpSecurityRestrictionsUseMain: false
+      ipSecurityRestrictions: empty(apiAllowedSubnetId)
+        ? []
+        : [
+            {
+              name: 'AllowApimSubnet'
+              description: 'Allow inbound only from APIM subnet'
+              action: 'Allow'
+              priority: 100
+              vnetSubnetResourceId: apiAllowedSubnetId
+            }
+          ]
     }
   }
 }
