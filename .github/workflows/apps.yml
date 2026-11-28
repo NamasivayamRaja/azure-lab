@@ -1,8 +1,17 @@
 name: Apps (API, Worker, Functions)
 
+# Toggle live Azure deployments via GitHub Repo Variable:
+#   AZURE_DEPLOY_ENABLED = 'true'  -> enables artifact upload & deploy-dev on push to main
+#   unset / 'false' (default)      -> runs CI build verification only; skips Azure deployment
+
 on:
   workflow_dispatch:
     inputs:
+      deploy:
+        description: 'Deploy to Azure dev (overrides AZURE_DEPLOY_ENABLED when true)'
+        required: false
+        type: boolean
+        default: false
       ef_only:
         description: 'Run EF Core migrations only (skip app deploys)'
         required: false
@@ -111,7 +120,12 @@ jobs:
             --force -o publish/efbundle
 
       - name: Upload publish artifacts
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && (github.event_name == 'workflow_dispatch' || steps.changes.outputs.api == 'true' || steps.changes.outputs.worker == 'true' || steps.changes.outputs.functions == 'true' || steps.changes.outputs.ef == 'true')
+        if: >-
+          (
+            (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true') ||
+            (github.event_name == 'workflow_dispatch' && (vars.AZURE_DEPLOY_ENABLED == 'true' || inputs.deploy == true))
+          ) &&
+          (github.event_name == 'workflow_dispatch' || steps.changes.outputs.api == 'true' || steps.changes.outputs.worker == 'true' || steps.changes.outputs.functions == 'true' || steps.changes.outputs.ef == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: app-packages
@@ -120,7 +134,12 @@ jobs:
           retention-days: 3
 
   deploy-dev:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && (needs.build-and-publish.outputs.api == 'true' || needs.build-and-publish.outputs.worker == 'true' || needs.build-and-publish.outputs.functions == 'true' || needs.build-and-publish.outputs.ef == 'true')
+    if: >-
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true') ||
+        (github.event_name == 'workflow_dispatch' && (vars.AZURE_DEPLOY_ENABLED == 'true' || inputs.deploy == true))
+      ) &&
+      (needs.build-and-publish.outputs.api == 'true' || needs.build-and-publish.outputs.worker == 'true' || needs.build-and-publish.outputs.functions == 'true' || needs.build-and-publish.outputs.ef == 'true')
     needs: build-and-publish
     runs-on: ubuntu-latest
     environment: dev

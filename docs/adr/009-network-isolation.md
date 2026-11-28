@@ -28,7 +28,7 @@
 - **Option D — Run `Database.MigrateAsync()` at API/Worker startup:** Rejected. Requires granting runtime apps `db_ddladmin` (violating least privilege) and races across multiple instances and staging/production slots.
 
 ## Trade-offs Accepted & Consequences
-- **Positive:** Eliminates public data-plane exposure on Storage, SQL, OpenAI, and AI Search; closes Week 1 Rebuild Gap 1 (`sqlAllowedIps = []`); deterministic 4-branch DNS/network triage runbook (`docs/network-constraints.md`).
+- **Positive:** Eliminates public data-plane exposure on Storage, SQL, OpenAI, and AI Search; closes Week 1 Rebuild Gap 1 (`sqlAllowedIps = []`); deterministic 4-branch DNS/network triage runbook.
 - **Negative / Trade-offs:**
   - 6 Private Endpoints cost ~\$0.06/hr (~\$1.44/day, ~\$43/mo) plus ~\$3/mo for 6 Private DNS zones (mitigated in dev by toggling `deploy*PrivateEndpoint = false` between sessions).
   - Ephemeral ACI adds ~60–90s to migration runs (container pull + restore).

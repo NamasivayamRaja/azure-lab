@@ -1,6 +1,6 @@
 # ADR 010: API Gateway & AI Gateway Selection (APIM vs Alternatives)
 
-- **Status:** Accepted (Lab-validated on Week 2, Day 6; APIM torn down at EOD to preserve credits — also cross-referenced as [011-api-gateway.md](file:///d:/2026/AzureLabs/docs/adr/011-api-gateway.md))
+- **Status:** Accepted (Lab-validated on Week 2, Day 6; APIM torn down at EOD to preserve credits — also cross-referenced as [011-api-gateway.md](./011-api-gateway.md))
 - **Date:** 2026-11-22 (Updated 2026-11-26)
 - **Context:** `AzureLabs.Api` (`app-azurelab-api-dev-cin-jyqvnq`, App Service `P0v3`) and `oai-azurelab-dev-sin-jyqvnq` (Azure OpenAI, private-only via `pe-oai-azurelab-dev-cin`) need centralized edge authentication, per-caller rate and token limiting, W3C distributed trace continuity, and backend lock-down without distributing API keys.
 

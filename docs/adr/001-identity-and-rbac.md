@@ -11,7 +11,7 @@
    - Key Vault: Not deployed (`deployKeyVault = false`) until a third-party secret with no Entra integration exists.
 2. **System-Assigned Managed Identities per Compute Host (and Slot):**
    - Each app (`API`, `API/staging`, `Worker`, `Functions`, `Functions/staging`) uses its own System-Assigned Managed Identity.
-3. **Resource-Scoped Least-Privilege Azure RBAC in Bicep ([roleassignments.bicep](file:///d:/2026/AzureLabs/infra/bicep/modules/roleassignments.bicep)):**
+3. **Resource-Scoped Least-Privilege Azure RBAC in Bicep ([roleassignments.bicep](../../infra/bicep/modules/roleassignments.bicep)):**
    - **API:** `Storage Blob Delegator` at Storage Account scope + `Storage Blob Data Contributor` scoped strictly to container `bulk-player-enrollment`. Zero Service Bus roles (API writes exclusively to SQL `OutboxMessages`).
    - **Worker:** `Azure Service Bus Data Sender` and `Receiver` scoped to individual queues (`redeem-requests`) and topic/subscriptions (`offer-events/ledger`, `offer-events/notification`). Zero Storage roles.
    - **Functions (+ staging):** `Storage Blob Data Contributor` and `Storage Queue Data Contributor` at Storage Account scope (required by the Functions host for leases/locks and `event-docs` quarantine copy/delete), plus queue-scoped Service Bus roles (`offer-notifications`, `document-processed`).

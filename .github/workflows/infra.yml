@@ -1,6 +1,18 @@
 name: Infra (Bicep)
 
+# Toggle live Azure checks & deployments via GitHub Repo Variable:
+#   AZURE_DEPLOY_ENABLED = 'true'  -> enables PR What-If and main Bicep deploy
+#   unset / 'false' (default)      -> skips all live Azure calls (safe when resources are deleted)
+# Optional: set INFRA_BUILD_ENABLED = 'false' to also skip offline Bicep syntax/lint compilation.
+
 on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Deploy Bicep to dev (overrides AZURE_DEPLOY_ENABLED when true)'
+        required: false
+        type: boolean
+        default: false
   pull_request:
     branches: [main]
     paths:
@@ -28,17 +40,26 @@ env:
   ALERT_EMAIL: ${{ vars.ALERT_EMAIL }}
 
 jobs:
-  build-and-whatif:
-    if: github.event_name == 'pull_request'
+  bicep-lint:
+    name: Bicep Build & Lint (Offline)
+    if: vars.INFRA_BUILD_ENABLED != 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Bicep build & lint
+      - name: Bicep build & lint (offline)
         run: |
-          az bicep build --file ${{ env.BICEP_FILE }}
-          az bicep build-params --file ${{ env.DEV_PARAMS }}
+          az bicep build --file ${{ env.BICEP_FILE }} --stdout > /dev/null
+          az bicep build-params --file ${{ env.DEV_PARAMS }} --stdout > /dev/null
+
+  what-if:
+    name: Bicep What-If (Dev)
+    if: github.event_name == 'pull_request' && vars.AZURE_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -60,7 +81,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-dev:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.deploy == true)
+      )
     needs: []
     runs-on: ubuntu-latest
     environment: dev

@@ -8,7 +8,7 @@
    - Enable `Azure.Monitor.OpenTelemetry.AspNetCore` (`1.6.0`) and `Azure.Experimental.EnableActivitySource = true` with `IncludeScopes = true` across API and Worker.
    - Persist `Activity.Current` W3C `traceparent` and `tracestate` inside `OutboxMessage.Properties` JSON during `Outbox.Create`.
    - In `OutboxDispatcher`, restore the parent context via custom `ActivitySource("AzureLab.Outbox")` (`ActivityKind.Producer`) before calling `ServiceBusSender.SendMessageAsync`, so the SDK injects `Diagnostic-Id` and links the entire async chain under a single `OperationId`.
-2. **Symptom-Based Metric & Log Alerts ([alerts.bicep](file:///d:/2026/AzureLabs/infra/bicep/modules/alerts.bicep)):**
+2. **Symptom-Based Metric & Log Alerts ([alerts.bicep](../../infra/bicep/modules/alerts.bicep)):**
    - **Service Bus DLQ (`Sev 1`):** Metric alert on `DeadletteredMessages > 0` (`timeAggregation: 'Maximum'`, `PT1M` frequency) for `redeem-requests` and `offer-events` subscriptions.
    - **Outbox Lag (`Sev 2`):** `scheduledQueryRules` KQL alert detecting `Redeem accepted` traces without a matching `Outbox message sent` on the same `OperationId` within 60s (`PT5M` window). Chosen over a Worker-emitted custom metric because a crashed/stopped Worker emits zero metrics ("silent death").
    - **API Availability, 5xx & Latency:** Metric alerts on `Http5xx > 5` and `HttpResponseTime > 2s`, plus availability check on `/health/live`.

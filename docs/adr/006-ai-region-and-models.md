@@ -26,7 +26,7 @@
 - **Negative / Trade-offs:**
   - `GlobalStandard` (`gpt-5-mini`) allows inference processing outside India (data at rest stays in `southindia`); strict single-region inference compliance would require `Standard` regional quota in a supported region or PTUs.
   - Cross-region OpenAI requires amending `allowed-locations-cin` and adds minor inter-region PE data charges on Day 5.
-  - **Lesson learned (captured in `docs/interview-prep/learning-notes.md`):** Always choose the landing zone primary region against the most constrained *planned* service (AI model quotas), not just Phase 1 compute/data.
+  - **Lesson learned:** Always choose the landing zone primary region against the most constrained *planned* service (AI model quotas), not just Phase 1 compute/data.
 
 ## Revisit When
 - Microsoft releases pay-as-you-go (`Standard` or `GlobalStandard`) quota for `gpt-5-mini` and `text-embedding-3-small` in `centralindia` (allowing single-region consolidation).
