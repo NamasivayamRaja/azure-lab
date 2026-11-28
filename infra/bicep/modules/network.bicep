@@ -6,6 +6,7 @@ param vnetAddressPrefix string = '10.10.0.0/22'
 param appsvcIntSubnetPrefix string = '10.10.0.0/26'
 param peSubnetPrefix string = '10.10.1.0/25'
 param aciSubnetPrefix string = '10.10.1.128/25'
+param apimIntSubnetPrefix string = '10.10.2.0/26'
 param privateDnsZoneNames array = []
 param expires string = ''
 
@@ -41,6 +42,42 @@ resource nsgAppsvcInt 'Microsoft.Network/networkSecurityGroups@2025-01-01' = {
           sourcePortRange: '*'
           destinationAddressPrefix: peSubnetPrefix
           destinationPortRange: '1433'
+        }
+      }
+    ]
+  }
+}
+
+resource nsgApimInt 'Microsoft.Network/networkSecurityGroups@2025-01-01' = {
+  name: 'nsg-snet-apim-int'
+  location: location
+  tags: effectiveTags
+  properties: {
+    securityRules: [
+      {
+        name: 'allow-pe-https'
+        properties: {
+          priority: 100
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourceAddressPrefix: apimIntSubnetPrefix
+          sourcePortRange: '*'
+          destinationAddressPrefix: peSubnetPrefix
+          destinationPortRange: '443'
+        }
+      }
+      {
+        name: 'allow-keyvault-https'
+        properties: {
+          priority: 110
+          direction: 'Outbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourceAddressPrefix: apimIntSubnetPrefix
+          sourcePortRange: '*'
+          destinationAddressPrefix: 'AzureKeyVault'
+          destinationPortRange: '443'
         }
       }
     ]
@@ -90,6 +127,19 @@ resource nsgPe 'Microsoft.Network/networkSecurityGroups@2025-01-01' = {
           sourcePortRange: '*'
           destinationAddressPrefix: peSubnetPrefix
           destinationPortRange: '1433'
+        }
+      }
+      {
+        name: 'allow-apim-https'
+        properties: {
+          priority: 130
+          direction: 'Inbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourceAddressPrefix: apimIntSubnetPrefix
+          sourcePortRange: '*'
+          destinationAddressPrefix: peSubnetPrefix
+          destinationPortRange: '443'
         }
       }
       {
@@ -161,6 +211,28 @@ resource vnet 'Microsoft.Network/virtualNetworks@2025-01-01' = {
           ]
         }
       }
+      {
+        name: 'snet-apim-int'
+        properties: {
+          addressPrefix: apimIntSubnetPrefix
+          networkSecurityGroup: {
+            id: nsgApimInt.id
+          }
+          delegations: [
+            {
+              name: 'Microsoft.Web.serverFarms'
+              properties: {
+                serviceName: 'Microsoft.Web/serverFarms'
+              }
+            }
+          ]
+          serviceEndpoints: [
+            {
+              service: 'Microsoft.Web'
+            }
+          ]
+        }
+      }
     ]
   }
 }
@@ -193,3 +265,4 @@ output vnetName string = vnet.name
 output appsvcIntSubnetId string = vnet.properties.subnets[0].id
 output peSubnetId string = vnet.properties.subnets[1].id
 output aciSubnetId string = vnet.properties.subnets[2].id
+output apimIntSubnetId string = vnet.properties.subnets[3].id

@@ -57,13 +57,13 @@ param openAiChatCapacity = 10
 param openAiEmbeddingCapacity = 10
 param openAiDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
 
-// ---------- Azure AI Search (Week 2, Day 2/3 — Basic in centralindia; recreated for Day 5) ----------
-param deploySearch = true
+// ---------- Azure AI Search (Week 2, Day 2/3 — deleted at Day 6 EOD; set true to recreate) ----------
+param deploySearch = false
 param searchSkuName = 'basic'
 param searchSemanticSearch = 'free'
-param searchExpires = '2026-11-23'
+param searchExpires = ''
 param searchDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
-param aiEnabled = true
+param aiEnabled = false
 param aiSearchIndexName = 'azurelab-docs-v2'
 param aiSearchMode = 'HybridSemantic'
 
@@ -79,15 +79,23 @@ param deployDocumentIntelligence = true
 param docIntelligenceSkuName = 'S0'
 param docIntelligenceDevUserObjectId = readEnvironmentVariable('AZURELAB_SQL_ADMIN_OID', '')
 
-// ---------- Networking & Private Endpoints (Week 2, Day 5) ----------
+// ---------- Networking & Private Endpoints (Week 2, Day 5 — PEs deleted at Day 6 EOD; VNet kept at $0) ----------
 param deployNetwork = true
 param vnetRouteAllEnabled = true
-param privateEndpointExpires = '2026-11-23'
-param deployStoragePrivateEndpoints = true
-param storagePublicNetworkAccess = 'Disabled' // Locked down after proving private DNS (10.10.1.4/.5/.6)
-param deploySqlPrivateEndpoint = true
-param sqlPublicNetworkAccess = 'Disabled' // Locked down after proving private DNS + TCP 1433
-param deployOpenAiPrivateEndpoint = true
-param openAiPublicNetworkAccess = 'Disabled' // Locked down after proving cross-region private DNS (10.10.1.8)
-param deploySearchPrivateEndpoint = true
-param searchPublicNetworkAccess = 'disabled' // Locked down after proving private DNS (10.10.1.9) + ensure-index
+param privateEndpointExpires = ''
+param deployStoragePrivateEndpoints = false
+param storagePublicNetworkAccess = 'Enabled'
+param deploySqlPrivateEndpoint = false
+param sqlPublicNetworkAccess = 'Enabled'
+param deployOpenAiPrivateEndpoint = false
+param openAiPublicNetworkAccess = 'Enabled'
+param deploySearchPrivateEndpoint = false
+param searchPublicNetworkAccess = 'enabled'
+
+// ---------- API Management (Week 2, Day 6 — deleted at EOD; set true to recreate) ----------
+param deployApim = false
+param apimSkuName = 'StandardV2'
+param apimPublisherEmail = readEnvironmentVariable('ALERT_EMAIL', 'admin@azurelab.local')
+param apimExpires = ''
+param lockApiToApim = false
+param useApimAiGateway = false

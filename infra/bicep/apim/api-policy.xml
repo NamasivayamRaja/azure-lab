@@ -1,0 +1,38 @@
+<policies>
+  <inbound>
+    <base />
+    <set-backend-service backend-id="azurelab-api" />
+    <set-header name="X-Correlation-ID" exists-action="skip">
+      <value>@(context.RequestId.ToString())</value>
+    </set-header>
+    <validate-content unspecified-content-type-action="ignore" max-size="65536" size-exceeded-action="prevent" errors-variable-name="requestValidationError" />
+    <choose>
+      <when condition="@(!context.Operation.Id.StartsWith(&quot;get-health&quot;))">
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Valid Entra JWT required." require-expiration-time="true" require-signed-tokens="true" output-token-variable-name="jwt">
+          <openid-config url="__LOGIN_ENDPOINT____TENANT_ID__/v2.0/.well-known/openid-configuration" />
+          <audiences>
+            <audience>api://__CLIENT_ID__</audience>
+            <audience>__CLIENT_ID__</audience>
+          </audiences>
+          <issuers>
+            <issuer>__LOGIN_ENDPOINT____TENANT_ID__/v2.0</issuer>
+            <issuer>https://sts.windows.net/__TENANT_ID__/</issuer>
+          </issuers>
+        </validate-jwt>
+        <rate-limit-by-key calls="5" renewal-period="60" counter-key="@(((Jwt)context.Variables[&quot;jwt&quot;]).Claims.GetValueOrDefault(&quot;oid&quot;, context.Request.IpAddress))" remaining-calls-header-name="X-RateLimit-Remaining" retry-after-header-name="Retry-After" />
+      </when>
+    </choose>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+    <set-header name="X-Correlation-ID" exists-action="skip">
+      <value>@(context.Request.Headers.GetValueOrDefault("X-Correlation-ID", context.RequestId.ToString()))</value>
+    </set-header>
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
