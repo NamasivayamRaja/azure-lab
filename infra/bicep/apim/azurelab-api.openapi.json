@@ -1,0 +1,165 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "AzureLab API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "get-health",
+        "summary": "Liveness health check",
+        "responses": {
+          "200": { "description": "Healthy" }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "get-health-ready",
+        "summary": "Readiness health check (SQL)",
+        "responses": {
+          "200": { "description": "Ready" },
+          "503": { "description": "Unhealthy" }
+        }
+      }
+    },
+    "/offers/{offerId}/redeem": {
+      "post": {
+        "operationId": "post-offer-redeem",
+        "summary": "Redeem an offer (idempotent with X-Correlation-ID)",
+        "parameters": [
+          {
+            "name": "offerId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "202": { "description": "Accepted" },
+          "401": { "description": "Unauthorized" },
+          "429": { "description": "Too Many Requests" }
+        }
+      }
+    },
+    "/events/{eventId}/ask": {
+      "post": {
+        "operationId": "post-event-ask",
+        "summary": "Ask a grounded RAG question for an event",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "question": { "type": "string" }
+                },
+                "required": ["question"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "OK" },
+          "401": { "description": "Unauthorized" },
+          "413": { "description": "Payload Too Large" },
+          "429": { "description": "Too Many Requests" }
+        }
+      }
+    },
+    "/events/{eventId}/documents": {
+      "post": {
+        "operationId": "post-event-documents",
+        "summary": "Register an uploaded event document",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OK" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/events/{eventId}/documents/upload-sas": {
+      "get": {
+        "operationId": "get-event-document-upload-sas",
+        "summary": "Get user-delegation SAS for document upload",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OK" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/events/{eventId}/documents/{fileName}/download-sas": {
+      "get": {
+        "operationId": "get-event-document-download-sas",
+        "summary": "Get user-delegation SAS for document download",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "fileName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OK" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/events/{eventId}/documents/{fileName}/complete": {
+      "get": {
+        "operationId": "get-event-document-complete",
+        "summary": "Mark document upload complete",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "fileName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "OK" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  }
+}

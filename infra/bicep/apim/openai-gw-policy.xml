@@ -1,0 +1,33 @@
+<policies>
+  <inbound>
+    <base />
+    <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Valid Entra token for cognitiveservices.azure.com required." require-expiration-time="true" require-signed-tokens="true" output-token-variable-name="callerJwt">
+      <openid-config url="__LOGIN_ENDPOINT____TENANT_ID__/v2.0/.well-known/openid-configuration" />
+      <audiences>
+        <audience>https://cognitiveservices.azure.com</audience>
+        <audience>https://cognitiveservices.azure.com/</audience>
+      </audiences>
+      <issuers>
+        <issuer>__LOGIN_ENDPOINT____TENANT_ID__/v2.0</issuer>
+        <issuer>https://sts.windows.net/__TENANT_ID__/</issuer>
+      </issuers>
+    </validate-jwt>
+    <llm-token-limit counter-key="@(((Jwt)context.Variables[&quot;callerJwt&quot;]).Claims.GetValueOrDefault(&quot;oid&quot;, context.Request.IpAddress))" tokens-per-minute="200" estimate-prompt-tokens="true" tokens-consumed-header-name="X-Tokens-Consumed" remaining-tokens-header-name="X-Remaining-Tokens" retry-after-header-name="Retry-After" />
+    <llm-emit-token-metric namespace="ai-gateway">
+      <dimension name="CallerOid" value="@(((Jwt)context.Variables[&quot;callerJwt&quot;]).Claims.GetValueOrDefault(&quot;oid&quot;, &quot;unknown&quot;))" />
+      <dimension name="Deployment" value="@(context.Request.MatchedParameters.GetValueOrDefault(&quot;deployment-id&quot;, &quot;unknown&quot;))" />
+      <dimension name="Client IP" value="@(context.Request.IpAddress)" />
+    </llm-emit-token-metric>
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+    <set-backend-service backend-id="azure-openai" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

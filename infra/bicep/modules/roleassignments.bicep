@@ -34,6 +34,9 @@ param docIntelligenceAccountName string = ''
 @description('Optional Entra User object ID granted Cognitive Services User for local keyless Document Intelligence evaluation.')
 param docIntelligenceDevUserObjectId string = ''
 
+param deployApim bool = false
+param apimPrincipalId string = ''
+
 // Built-in role definition IDs. Cannot be validated offline: confirm in cloud week 1
 // with: az role definition list --name "<role name>"
 var roleIds = {
@@ -297,6 +300,17 @@ resource devUserOpenAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' 
     roleDefinitionId: roleIds.openAiUser
     principalId: openAiDevUserObjectId
     principalType: 'User'
+  }
+}
+
+// APIM AI gateway calls Azure OpenAI chat + embeddings with its system-assigned managed identity (no keys).
+resource apimOpenAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployOpenAi && deployApim && !empty(apimPrincipalId)) {
+  name: guid(openAi.id, apimPrincipalId, roleIds.openAiUser)
+  scope: openAi
+  properties: {
+    roleDefinitionId: roleIds.openAiUser
+    principalId: apimPrincipalId
+    principalType: 'ServicePrincipal'
   }
 }
 
